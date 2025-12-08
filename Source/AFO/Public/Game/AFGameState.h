@@ -26,10 +26,10 @@ class AFO_API AAFGameState : public AGameState
 public:
 	// 스코어 (킬 수)
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "AFO|Score")
-	int32 TeamRedScore = 0;
+	int32 TeamRedKillScore = 0;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "AFO|Score")
-	int32 TeamBlueScore = 0;
+	int32 TeamBlueKillScore = 0;
 
 protected:
 	// 남은 시간

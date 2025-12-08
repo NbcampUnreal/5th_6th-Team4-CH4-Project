@@ -9,8 +9,8 @@ void AAFGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	// Score 변수 복제
-	DOREPLIFETIME(ThisClass, TeamRedScore);
-	DOREPLIFETIME(ThisClass, TeamBlueScore);
+	DOREPLIFETIME(ThisClass, TeamRedKillScore);
+	DOREPLIFETIME(ThisClass, TeamBlueKillScore);
 
 	// 남은 시간 변수 복제 및 RepNotify 설정
 	DOREPLIFETIME(ThisClass, RemainingTimeSeconds);
