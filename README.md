@@ -11,5 +11,6 @@
 * 인게임 회복 버프 랜덤 스폰
 
 네트워크	: 언리얼 엔진 Dedicated Server 기반 Full Replication
+
 개발 기간	: 3주 (MVP: Minimum Viable Product 목표)
 핵심 목표	: 기본적인 멀티플레이 접속, 팀/캐릭터 선택, 2vs2 대전 코어 루프 구현
