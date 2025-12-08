@@ -6,9 +6,7 @@
 #include "GameFramework/GameSession.h"
 #include "AFGameSession.generated.h"
 
-/**
- * 
- */
+
 UCLASS()
 class AFO_API AAFGameSession : public AGameSession
 {
