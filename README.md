@@ -1,4 +1,5 @@
 게임명 :	AFO (Arena Fighters Online)
+
 장르	: 2 vs 2 멀티플레이어 팀 대전 액션
 플랫폼	: PC (Dedicated Server 기반)
 
