@@ -49,4 +49,14 @@ private:
 	float SprintSpeedMultiplier;                        // 달리기 속도(곱해줄 값)
 	float SprintSpeed;                                  // 실제 달리기 속도 ( 기본 속도 * 계산된 값 )
 	float LookSensitive;                                // 마우스 민감도
+	
+	// 입력 액션들
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
+	UInputAction* MoveAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
+	UInputAction* LookAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
+	UInputAction* SprintAction;
 };

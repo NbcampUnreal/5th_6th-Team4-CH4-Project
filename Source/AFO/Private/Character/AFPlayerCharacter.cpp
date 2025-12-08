@@ -36,10 +36,17 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	
 	if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		if (AAFPlayerCharacter* PlayerController = Cast<AAFPlayerCharacter>(GetController()))
-		{
-			
-		}
+		// 이동 : 2D Axis Value
+		EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AAFPlayerCharacter::Move);
+
+		// 시야 회전(탑뷰 카메라 회전) : 2D Axis Value (Yaw만 사용)
+		EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AAFPlayerCharacter::Look);
+
+		// 달리기 시작 : Digital Bool
+		EnhancedInput->BindAction(SprintAction, ETriggerEvent::Started, this, &AAFPlayerCharacter::StartSprint);
+
+		// 달리기 끝 : Digital Bool
+		EnhancedInput->BindAction(SprintAction, ETriggerEvent::Completed, this, &AAFPlayerCharacter::StopSprint);
 	}
 }
 
