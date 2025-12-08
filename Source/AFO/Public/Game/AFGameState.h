@@ -1,4 +1,4 @@
-// 
+// AFGameState.h
 
 #pragma once
 
