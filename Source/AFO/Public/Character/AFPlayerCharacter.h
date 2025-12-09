@@ -42,13 +42,18 @@ public:
 	void DealDamage();
 	
 private:
+	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArm;
+	UPROPERTY(VisibleAnywhere)
 	UCameraComponent* Camera;
 	
 	float NormalSpeed;                                  // 기본 이동속도
 	float SprintSpeedMultiplier;                        // 달리기 속도(곱해줄 값)
 	float SprintSpeed;                                  // 실제 달리기 속도 ( 기본 속도 * 계산된 값 )
 	float LookSensitive;                                // 마우스 민감도
+	
+	UPROPERTY(EditAnywhere, Category="Combat")
+	UAnimMontage* AttackMontage;
 	
 	// 입력 액션들
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
@@ -59,4 +64,10 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
 	UInputAction* SprintAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
+	UInputAction* AttackAction;
+	
+	UPROPERTY(EditAnywhere, Category="Camera")
+	float CameraPanSpeed = 2000.f;
 };

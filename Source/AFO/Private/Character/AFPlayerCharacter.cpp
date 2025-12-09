@@ -1,5 +1,4 @@
 #include "Character/AFPlayerCharacter.h"
-#include "Kismet/GameplayStatics.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -9,23 +8,32 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = false;
 	
-	// SpringArm 생성
+	// 스프링암 생성
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-	SpringArm->SetupAttachment(RootComponent);
-	SpringArm->TargetArmLength = 800.f;                // 카메라 거리
-	SpringArm->bUsePawnControlRotation = false;        // 컨트롤러 회전 사용 X
-	SpringArm->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f));  // 위에서 내려다보기
-	SpringArm->bDoCollisionTest = false;               // 카메라 충돌 끄기 (탑뷰는 필수)
+	SpringArm->TargetArmLength = 300.f;
+	SpringArm->SetRelativeRotation(FRotator(-45.f, 0.f, 0.f));
+	SpringArm->bDoCollisionTest = false;
+
+	// 캐릭터에서 완전히 분리
+	SpringArm->SetupAttachment(nullptr);
 
 	// 카메라 생성
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm);
-	Camera->bUsePawnControlRotation = false;           // 카메라 회전 고정
+
+	// 캐릭터 회전과 무관하게 카메라 고정
+	bUseControllerRotationYaw = false;
+	GetCharacterMovement()->bOrientRotationToMovement = true;
 }
 
 void AAFPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	// 카메라 초기 위치를 캐릭터 근처로 이동
+	FVector StartLoc = GetActorLocation();
+	StartLoc.Z += 650.f;
+	SpringArm->SetWorldLocation(StartLoc);
 	
 	UAnimInstance* Anim = GetMesh()->GetAnimInstance();
 }
@@ -36,17 +44,11 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	
 	if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		// 이동 : 2D Axis Value
 		EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AAFPlayerCharacter::Move);
-
-		// 시야 회전(탑뷰 카메라 회전) : 2D Axis Value (Yaw만 사용)
 		EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AAFPlayerCharacter::Look);
-
-		// 달리기 시작 : Digital Bool
 		EnhancedInput->BindAction(SprintAction, ETriggerEvent::Started, this, &AAFPlayerCharacter::StartSprint);
-
-		// 달리기 끝 : Digital Bool
 		EnhancedInput->BindAction(SprintAction, ETriggerEvent::Completed, this, &AAFPlayerCharacter::StopSprint);
+		EnhancedInput->BindAction(AttackAction, ETriggerEvent::Started, this, &AAFPlayerCharacter::Attack);
 	}
 }
 
@@ -54,24 +56,23 @@ void AAFPlayerCharacter::Move(const FInputActionValue& value)
 {
 	if (!Controller) return;
 
-	const FVector2D Input = value.Get<FVector2D>();
+	FVector2D Input = value.Get<FVector2D>();
 	if (Input.IsNearlyZero()) return;
 
-	// 탑뷰는 월드 기준 X/Y 방향으로 이동
 	AddMovementInput(FVector::ForwardVector, Input.Y);
 	AddMovementInput(FVector::RightVector, Input.X);
-
-	// 이동 방향으로 회전시키기
-	FRotator NewRot = FVector(Input.Y, Input.X, 0.f).Rotation();
-	SetActorRotation(NewRot);
 }
 
 void AAFPlayerCharacter::Look(const FInputActionValue& value)
 {
-	FVector2D LookInput = value.Get<FVector2D>();
+	FVector2D Input = value.Get<FVector2D>();
+	if (Input.IsNearlyZero()) return;
 
-	AddControllerYawInput(LookInput.X);
-	AddControllerPitchInput(LookInput.Y);
+	// 화면 이동 (월드 기준)
+	FVector MoveDir(Input.Y, Input.X, 0.f);
+	MoveDir *= CameraPanSpeed * GetWorld()->GetDeltaSeconds();
+
+	SpringArm->AddWorldOffset(MoveDir);
 }
 
 void AAFPlayerCharacter::StartSprint(const FInputActionValue& value)
@@ -97,7 +98,18 @@ void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInter
 
 void AAFPlayerCharacter::Attack()
 {
+	UE_LOG(LogTemp, Warning, TEXT("▶ AttackInput() 함수 호출됨! 공격 입력 감지됨."));
 	
+	if (bIsAttacking) 
+	{
+		return; // 이미 공격 중이면 무시
+	}
+
+	if (AttackMontage)
+	{
+		bIsAttacking = true;
+		PlayAnimMontage(AttackMontage);
+	}
 }
 
 void AAFPlayerCharacter::DealDamage()

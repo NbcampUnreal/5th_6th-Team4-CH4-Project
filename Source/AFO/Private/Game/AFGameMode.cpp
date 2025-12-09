@@ -1,5 +1,9 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "Game/AFGameMode.h"
 
+void AAFGameMode::PostLogin(APlayerController* NewPlayer)
+{
+}
+
+void AAFGameMode::Logout(AController* Exiting)
+{
+}
