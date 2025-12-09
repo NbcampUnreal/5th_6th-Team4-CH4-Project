@@ -3,6 +3,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
+#include "Player/AFPlayerController.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
@@ -48,6 +49,7 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AAFPlayerCharacter::Look);
 		EnhancedInput->BindAction(SprintAction, ETriggerEvent::Started, this, &AAFPlayerCharacter::StartSprint);
 		EnhancedInput->BindAction(SprintAction, ETriggerEvent::Completed, this, &AAFPlayerCharacter::StopSprint);
+		EnhancedInput->BindAction(AttackAction, ETriggerEvent::Started, this, &AAFPlayerCharacter::Attack);
 	}
 }
 
@@ -97,7 +99,18 @@ void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInter
 
 void AAFPlayerCharacter::Attack()
 {
+	UE_LOG(LogTemp, Warning, TEXT("▶ AttackInput() 함수 호출됨! 공격 입력 감지됨."));
 	
+	if (bIsAttacking) 
+	{
+		return; // 이미 공격 중이면 무시
+	}
+
+	if (AttackMontage)
+	{
+		bIsAttacking = true;
+		PlayAnimMontage(AttackMontage);
+	}
 }
 
 void AAFPlayerCharacter::DealDamage()
