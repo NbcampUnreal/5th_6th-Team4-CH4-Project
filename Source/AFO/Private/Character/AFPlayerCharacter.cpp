@@ -3,7 +3,6 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
-#include "Player/AFPlayerController.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
@@ -33,7 +32,7 @@ void AAFPlayerCharacter::BeginPlay()
 	
 	// 카메라 초기 위치를 캐릭터 근처로 이동
 	FVector StartLoc = GetActorLocation();
-	StartLoc.Z += 800.f;
+	StartLoc.Z += 650.f;
 	SpringArm->SetWorldLocation(StartLoc);
 	
 	UAnimInstance* Anim = GetMesh()->GetAnimInstance();
