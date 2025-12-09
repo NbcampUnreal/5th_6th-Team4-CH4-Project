@@ -42,9 +42,7 @@ public:
 	void DealDamage();
 	
 private:
-	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArm;
-	UPROPERTY(VisibleAnywhere)
 	UCameraComponent* Camera;
 	
 	float NormalSpeed;                                  // 기본 이동속도
@@ -61,7 +59,4 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
 	UInputAction* SprintAction;
-	
-	UPROPERTY(EditAnywhere, Category="Camera")
-	float CameraPanSpeed = 2000.f;
 };
