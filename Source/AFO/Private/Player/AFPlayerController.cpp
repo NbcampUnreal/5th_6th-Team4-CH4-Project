@@ -1,7 +1,6 @@
 #include "Player/AFPlayerController.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
-#include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 
 AAFPlayerController::AAFPlayerController()

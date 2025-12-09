@@ -11,7 +11,7 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 	// 스프링암 생성
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->TargetArmLength = 300.f;
-	SpringArm->SetRelativeRotation(FRotator(-45.f, 0.f, 0.f));
+	SpringArm->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f));
 	SpringArm->bDoCollisionTest = false;
 
 	// 캐릭터에서 완전히 분리
@@ -30,12 +30,23 @@ void AAFPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	NormalSpeed = 300.f;  
+	SprintSpeedMultiplier = 1.5f;
+	SprintSpeed = NormalSpeed * SprintSpeedMultiplier;
+
+	GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
+	
 	// 카메라 초기 위치를 캐릭터 근처로 이동
 	FVector StartLoc = GetActorLocation();
-	StartLoc.Z += 650.f;
+	StartLoc.Z += 550.f;
 	SpringArm->SetWorldLocation(StartLoc);
 	
 	UAnimInstance* Anim = GetMesh()->GetAnimInstance();
+	
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		AnimInstance->OnMontageEnded.AddDynamic(this, &AAFPlayerCharacter::OnAttackMontageEnded);
+	}
 }
 
 void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
