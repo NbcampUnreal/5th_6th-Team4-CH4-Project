@@ -1,6 +1,6 @@
 #include "Character/AFPlayerCharacter.h"
 
-#include "AFAttributeComponent.h"
+#include "Components/AFAttributeComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
