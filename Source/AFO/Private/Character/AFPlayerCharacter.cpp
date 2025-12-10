@@ -8,6 +8,8 @@
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	AttributeComp = CreateDefaultSubobject<UAFAttributeComponent>(TEXT("AttributeComponent"));
 	
 	// 스프링암 생성
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
@@ -113,7 +115,49 @@ void AAFPlayerCharacter::Attack()
 	}
 }
 
-void AAFPlayerCharacter::DealDamage()
+void AAFPlayerController::DealDamage()
 {
+	UE_LOG(LogTemp, Warning, TEXT("▶ DealDamage() 호출됨 — 실제 공격 판정 실행"));
+
+	// 공격 범위(전방 150cm) 트레이스
+	FVector Start = GetActorLocation();
+	FVector End = Start + (GetActorForwardVector() * 150.f);
+
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	FHitResult Hit;
+
+	bool bHit = GetWorld()->LineTraceSingleByChannel(
+		Hit,
+		Start,
+		End,
+		ECollisionChannel::ECC_Pawn,
+		Params
+	);
+
+	if (bHit)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (HitActor)
+		{
+			UAFAttributeComponent* TargetAttr = HitActor->FindComponentByClass<UAFAttributeComponent>();
+
+			if (TargetAttr)
+			{
+				TargetAttr->ApplyDamage(20.f);
+				UE_LOG(LogTemp, Warning, TEXT("공격 성공 → %s에게 데미지 20 적용"), *HitActor->GetName());
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("타겟에 AttributeComponent 없음"));
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("공격 실패: 타격 없음"));
+	}
 }
+
 

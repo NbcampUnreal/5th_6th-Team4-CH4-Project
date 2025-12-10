@@ -70,4 +70,7 @@ private:
 	
 	UPROPERTY(EditAnywhere, Category="Camera")
 	float CameraPanSpeed = 2000.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
+	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
 };
