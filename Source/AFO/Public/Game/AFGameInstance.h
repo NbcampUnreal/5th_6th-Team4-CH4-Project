@@ -6,9 +6,7 @@
 #include "Engine/GameInstance.h"
 #include "AFGameInstance.generated.h"
 
-/**
- * 
- */
+
 UCLASS()
 class AFO_API UAFGameInstance : public UGameInstance
 {
