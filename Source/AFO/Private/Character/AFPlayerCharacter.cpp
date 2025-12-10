@@ -8,33 +8,35 @@
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	AttributeComp = CreateDefaultSubobject<UAFAttributeComponent>(TEXT("AttributeComponent"));
+	
+	NormalSpeed = 300.f;
+	SprintSpeedMultiplier = 1.5f;
+	SprintSpeed = NormalSpeed * SprintSpeedMultiplier;
+
+	GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
 	
 	// 스프링암 생성
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-	SpringArm->TargetArmLength = 300.f;
-	SpringArm->SetRelativeRotation(FRotator(-45.f, 0.f, 0.f));
-	SpringArm->bDoCollisionTest = false;
-
-	// 캐릭터에서 완전히 분리
-	SpringArm->SetupAttachment(nullptr);
+	SpringArm->SetupAttachment(RootComponent);
+	SpringArm->TargetArmLength = 350.f;
+	SpringArm->bUsePawnControlRotation = true;
 
 	// 카메라 생성
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm);
-
-	// 캐릭터 회전과 무관하게 카메라 고정
-	bUseControllerRotationYaw = false;
-	GetCharacterMovement()->bOrientRotationToMovement = true;
+	Camera->bUsePawnControlRotation = false;
 }
 
 void AAFPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	// 카메라 초기 위치를 캐릭터 근처로 이동
-	FVector StartLoc = GetActorLocation();
-	StartLoc.Z += 800.f;
-	SpringArm->SetWorldLocation(StartLoc);
+
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		AnimInstance->OnMontageEnded.AddDynamic(this, &AAFPlayerCharacter::OnAttackMontageEnded);
+	}
 	
 	UAnimInstance* Anim = GetMesh()->GetAnimInstance();
 }
@@ -45,11 +47,72 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	
 	if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AAFPlayerCharacter::Move);
-		EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AAFPlayerCharacter::Look);
-		EnhancedInput->BindAction(SprintAction, ETriggerEvent::Started, this, &AAFPlayerCharacter::StartSprint);
-		EnhancedInput->BindAction(SprintAction, ETriggerEvent::Completed, this, &AAFPlayerCharacter::StopSprint);
-		EnhancedInput->BindAction(AttackAction, ETriggerEvent::Started, this, &AAFPlayerCharacter::Attack);
+		if (AAFPlayerController* PlayerController = Cast<AAFPlayerController>(GetController()))
+		{
+			if (PlayerController->MoveAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->MoveAction,
+					ETriggerEvent::Triggered,
+					this,
+					&AAFPlayerCharacter::Move
+				);
+			}
+
+			if (PlayerController->LookAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->LookAction,
+					ETriggerEvent::Triggered,
+					this,
+					&AAFPlayerCharacter::Look
+				);
+			}
+
+			if (PlayerController->JumpAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->JumpAction,
+					ETriggerEvent::Triggered,
+					this,
+					&AAFPlayerCharacter::StartJump
+				);
+
+				EnhancedInput->BindAction(
+					PlayerController->JumpAction,
+					ETriggerEvent::Completed,
+					this,
+					&AAFPlayerCharacter::StopJump
+				);
+			}
+			
+			if (PlayerController->SprintAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->SprintAction,
+					ETriggerEvent::Started,
+					this,
+					&AAFPlayerCharacter::StartSprint
+				);
+
+				EnhancedInput->BindAction(
+					PlayerController->SprintAction,
+					ETriggerEvent::Completed,
+					this,
+					&AAFPlayerCharacter::StopSprint
+				);
+			}
+			
+			if (PlayerController->AttackAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->AttackAction,
+					ETriggerEvent::Started,
+					this,
+					&AAFPlayerCharacter::Attack
+				);
+			}
+		}
 	}
 }
 
@@ -57,23 +120,43 @@ void AAFPlayerCharacter::Move(const FInputActionValue& value)
 {
 	if (!Controller) return;
 
-	FVector2D Input = value.Get<FVector2D>();
-	if (Input.IsNearlyZero()) return;
+	const FVector2D MoveInput = value.Get<FVector2D>();
 
-	AddMovementInput(FVector::ForwardVector, Input.Y);
-	AddMovementInput(FVector::RightVector, Input.X);
+	if (!FMath::IsNearlyZero(MoveInput.Y))
+	{
+		AddMovementInput(GetActorForwardVector(), MoveInput.Y);
+	}
+
+	if (!FMath::IsNearlyZero(MoveInput.X))
+	{
+		AddMovementInput(GetActorRightVector(), MoveInput.X);
+	}
+}
+
+void AAFPlayerCharacter::StartJump(const FInputActionValue& value)
+{
+	UE_LOG(LogTemp, Warning, TEXT(" Jump "));
+	
+	if (value.Get<bool>())
+	{
+		Jump();
+	}
+}
+
+void AAFPlayerCharacter::StopJump(const FInputActionValue& value)
+{
+	if (!value.Get<bool>())
+	{
+		StopJumping();
+	}
 }
 
 void AAFPlayerCharacter::Look(const FInputActionValue& value)
 {
-	FVector2D Input = value.Get<FVector2D>();
-	if (Input.IsNearlyZero()) return;
+	FVector2D LookInput = value.Get<FVector2D>();
 
-	// 화면 이동 (월드 기준)
-	FVector MoveDir(Input.Y, Input.X, 0.f);
-	MoveDir *= CameraPanSpeed * GetWorld()->GetDeltaSeconds();
-
-	SpringArm->AddWorldOffset(MoveDir);
+	AddControllerYawInput(LookInput.X);
+	AddControllerPitchInput(LookInput.Y);
 }
 
 void AAFPlayerCharacter::StartSprint(const FInputActionValue& value)
@@ -99,7 +182,7 @@ void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInter
 
 void AAFPlayerCharacter::Attack()
 {
-	UE_LOG(LogTemp, Warning, TEXT("▶ AttackInput() 함수 호출됨! 공격 입력 감지됨."));
+	UE_LOG(LogTemp, Warning, TEXT("AttackInput()"));
 	
 	if (bIsAttacking) 
 	{
@@ -113,7 +196,49 @@ void AAFPlayerCharacter::Attack()
 	}
 }
 
-void AAFPlayerCharacter::DealDamage()
+void AAFPlayerController::DealDamage()
 {
+	UE_LOG(LogTemp, Warning, TEXT("▶ DealDamage() 호출됨 — 실제 공격 판정 실행"));
+
+	// 공격 범위(전방 150cm) 트레이스
+	FVector Start = GetActorLocation();
+	FVector End = Start + (GetActorForwardVector() * 150.f);
+
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	FHitResult Hit;
+
+	bool bHit = GetWorld()->LineTraceSingleByChannel(
+		Hit,
+		Start,
+		End,
+		ECollisionChannel::ECC_Pawn,
+		Params
+	);
+
+	if (bHit)
+	{
+		AActor* HitActor = Hit.GetActor();
+		if (HitActor)
+		{
+			UAFAttributeComponent* TargetAttr = HitActor->FindComponentByClass<UAFAttributeComponent>();
+
+			if (TargetAttr)
+			{
+				TargetAttr->ApplyDamage(20.f);
+				UE_LOG(LogTemp, Warning, TEXT("공격 성공 → %s에게 데미지 20 적용"), *HitActor->GetName());
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("타겟에 AttributeComponent 없음"));
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("공격 실패: 타격 없음"));
+	}
 }
+
 
