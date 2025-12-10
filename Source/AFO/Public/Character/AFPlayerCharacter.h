@@ -22,8 +22,12 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	UFUNCTION() // 언리얼 엔진의 함수 리플렉션 매크로 !
+	UFUNCTION()
 	void Move(const FInputActionValue& value);          // 이동구현 앞뒤좌우
+	UFUNCTION()
+	void StartJump(const FInputActionValue& value);     // 점프 시작
+	UFUNCTION()
+	void StopJump(const FInputActionValue& value);      // 점프 종료
 	UFUNCTION()
 	void Look(const FInputActionValue& value);          // 마우스 시야회전
 	UFUNCTION()
@@ -58,7 +62,10 @@ private:
 	// 입력 액션들
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
 	UInputAction* MoveAction;
-
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
+	UInputAction* JumpAction;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
 	UInputAction* LookAction;
 
@@ -67,10 +74,13 @@ private:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
 	UInputAction* AttackAction;
+<<<<<<< HEAD
 	
 	UPROPERTY(EditAnywhere, Category="Camera")
 	float CameraPanSpeed = 2000.f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
+=======
+>>>>>>> 6d7b799e81700e4cd6eff19b97ee70f108aeeb92
 };
