@@ -12,7 +12,7 @@ class AFO_API AAFTitlePlayerController : public APlayerController
 public:
     virtual void BeginPlay() override;
 
-    void JoinServer(const FString& InIPAddress);
+    void JoinServer();
 
 //protected:
 //    UFUNCTION(Server, Reliable)

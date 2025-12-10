@@ -33,10 +33,15 @@ void AAFTitlePlayerController::BeginPlay()
 //	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
 //}
 
-void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
+void AAFTitlePlayerController::JoinServer()
 {
 	FName NextLevelName = FName(TEXT("AFOBattleZone"));
 	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
+
+	FInputModeGameOnly GameMode;
+	SetInputMode(GameMode);
+
+	bShowMouseCursor = false;
  }
 
 //void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
