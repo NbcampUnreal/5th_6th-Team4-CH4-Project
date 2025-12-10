@@ -28,14 +28,20 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	FVector Velocity;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float GroundSpeed;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float DirectionX;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float DirectionY;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	uint8 bShouldMove : 1;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	uint8 bIsFalling : 1;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="State")

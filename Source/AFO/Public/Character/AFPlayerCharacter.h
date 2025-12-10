@@ -40,6 +40,30 @@ protected:
 	UFUNCTION()
 	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 	
+	// W : Forward Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	float ForwardSpeed = 1.0f;
+
+	// S : Backward Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	float BackwardSpeed = 0.65f;
+
+	// D : Right Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	float RightSpeed = 0.72f;
+
+	// A : Left Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	float LeftSpeed = 0.72f;
+	
+	// W / S 방향 (카메라 기준 Forward)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Movement|Directional Vectors")
+	FVector ForwardDir = FVector::ZeroVector;
+
+	// A / D 방향 (카메라 기준 Right)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Movement|Directional Vectors")
+	FVector RightDir = FVector::ZeroVector;
+	
 public:
 	void Attack();
 	UFUNCTION()

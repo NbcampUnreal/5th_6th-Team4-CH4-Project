@@ -30,6 +30,12 @@ void UAFAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		bShouldMove = (KINDA_SMALL_NUMBER < GroundSpeed) && (bIsAccelerationNearlyZero == false);
 		
 		bIsFalling = OwnerCharacterMovement->IsFalling();
+		
+		FVector WorldInput = OwnerCharacter->GetLastMovementInputVector();
+		FVector LocalInput = OwnerCharacter->GetActorRotation().UnrotateVector(WorldInput);
+		
+		DirectionX = LocalInput.X * 100.0f;
+		DirectionY = LocalInput.Y * 100.0f;
 	}
 }
 
