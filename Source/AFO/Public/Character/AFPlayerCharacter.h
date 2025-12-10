@@ -74,4 +74,13 @@ private:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
 	UInputAction* AttackAction;
+<<<<<<< HEAD
+	
+	UPROPERTY(EditAnywhere, Category="Camera")
+	float CameraPanSpeed = 2000.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
+	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
+=======
+>>>>>>> 6d7b799e81700e4cd6eff19b97ee70f108aeeb92
 };
