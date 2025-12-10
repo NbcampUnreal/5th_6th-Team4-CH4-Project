@@ -1,4 +1,6 @@
 #include "Character/AFPlayerCharacter.h"
+
+#include "AFAttributeComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -196,7 +198,7 @@ void AAFPlayerCharacter::Attack()
 	}
 }
 
-void AAFPlayerController::DealDamage()
+void AAFPlayerCharacter::DealDamage()
 {
 	UE_LOG(LogTemp, Warning, TEXT("▶ DealDamage() 호출됨 — 실제 공격 판정 실행"));
 
