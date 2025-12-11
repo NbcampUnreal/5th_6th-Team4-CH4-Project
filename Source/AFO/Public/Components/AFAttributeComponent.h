@@ -7,7 +7,7 @@
 #include "AFAttributeComponent.generated.h"
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class YOURGAME_API UAFAttributeComponent : public UActorComponent
+class AFO_API UAFAttributeComponent : public UActorComponent
 {
 	GENERATED_BODY()
 

@@ -1,5 +1,6 @@
 #include "Animation/AFAnimInstance.h"
 #include "Character/AFPlayerCharacter.h"
+#include "Character/AFDarkKnight.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -30,6 +31,25 @@ void UAFAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		bShouldMove = (KINDA_SMALL_NUMBER < GroundSpeed) && (bIsAccelerationNearlyZero == false);
 		
 		bIsFalling = OwnerCharacterMovement->IsFalling();
+		
+		FVector WorldInput = OwnerCharacter->GetLastMovementInputVector();
+		FVector LocalInput = OwnerCharacter->GetActorRotation().UnrotateVector(WorldInput);
+		
+		DirectionX = LocalInput.X * 100.0f;
+		DirectionY = LocalInput.Y * 100.0f;
+	}
+	
+	if (AAFPlayerCharacter* BaseChar = Cast<AAFPlayerCharacter>(OwnerCharacter))
+	{
+		if (AAFDarkKnight* DK = Cast<AAFDarkKnight>(BaseChar))
+		{
+			bIsSprinting = DK->bIsSprinting;
+		}
+		else
+		{
+			// 다른 캐릭터일 경우 false
+			bIsSprinting = false;
+		}
 	}
 }
 

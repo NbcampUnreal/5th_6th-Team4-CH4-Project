@@ -1,4 +1,6 @@
 #include "Character/AFPlayerCharacter.h"
+
+#include "Components/AFAttributeComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -11,12 +13,11 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 
 	AttributeComp = CreateDefaultSubobject<UAFAttributeComponent>(TEXT("AttributeComponent"));
 	
-	NormalSpeed = 300.f;
+	NormalSpeed = 400.f;
 	SprintSpeedMultiplier = 1.5f;
 	SprintSpeed = NormalSpeed * SprintSpeedMultiplier;
-
 	GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
-	
+
 	// 스프링암 생성
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
@@ -27,6 +28,8 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm);
 	Camera->bUsePawnControlRotation = false;
+	bUseControllerRotationYaw = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
 }
 
 void AAFPlayerCharacter::BeginPlay()
@@ -121,16 +124,39 @@ void AAFPlayerCharacter::Move(const FInputActionValue& value)
 	if (!Controller) return;
 
 	const FVector2D MoveInput = value.Get<FVector2D>();
-
-	if (!FMath::IsNearlyZero(MoveInput.Y))
+	if (MoveInput.IsNearlyZero()) return;
+	
+	// W / S 처리 (MoveInput.Y)
+	if (MoveInput.X > 0.f)
 	{
-		AddMovementInput(GetActorForwardVector(), MoveInput.Y);
+		// W
+		AddMovementInput(ForwardDir, MoveInput.X * ForwardSpeed);
+	}
+	else if (MoveInput.X < 0.f)
+	{
+		// S
+		AddMovementInput(ForwardDir, MoveInput.X * BackwardSpeed);
 	}
 
-	if (!FMath::IsNearlyZero(MoveInput.X))
+	// A / D 처리 (MoveInput.X)
+	if (MoveInput.Y > 0.f)
 	{
-		AddMovementInput(GetActorRightVector(), MoveInput.X);
+		// D
+		AddMovementInput(RightDir, MoveInput.Y * RightSpeed);
 	}
+	else if (MoveInput.Y < 0.f)
+	{
+		// A
+		AddMovementInput(RightDir, MoveInput.Y * LeftSpeed);
+	}
+	
+	// 컨트롤러(카메라)의 회전
+	const FRotator ControlRot = Controller->GetControlRotation();
+	const FRotator YawRot(0.f, ControlRot.Yaw, 0.f);
+
+	// 카메라 기준 Forward / Right 벡터 생성
+	ForwardDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
+	RightDir   = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
 }
 
 void AAFPlayerCharacter::StartJump(const FInputActionValue& value)
@@ -196,7 +222,7 @@ void AAFPlayerCharacter::Attack()
 	}
 }
 
-void AAFPlayerController::DealDamage()
+void AAFPlayerCharacter::DealDamage()
 {
 	UE_LOG(LogTemp, Warning, TEXT("▶ DealDamage() 호출됨 — 실제 공격 판정 실행"));
 

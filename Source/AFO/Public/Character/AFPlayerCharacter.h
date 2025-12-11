@@ -9,6 +9,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UAnimMontage;
 struct FInputActionValue;
+class UAFAttributeComponent;
 
 UCLASS()
 class AFO_API AAFPlayerCharacter : public ACharacter
@@ -31,14 +32,47 @@ protected:
 	UFUNCTION()
 	void Look(const FInputActionValue& value);          // 마우스 시야회전
 	UFUNCTION()
-	void StartSprint(const FInputActionValue& value);   // 달리기 시작
+	virtual void StartSprint(const FInputActionValue& Value);
 	UFUNCTION()
-	void StopSprint(const FInputActionValue& value);    // 달리기 끝
+	virtual void StopSprint(const FInputActionValue& Value);
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	bool bIsAttacking = false;
 	UFUNCTION()
 	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	
+	// W : Forward Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	float ForwardSpeed = 1.0f;
+
+	// S : Backward Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	float BackwardSpeed = 0.65f;
+
+	// D : Right Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	float RightSpeed = 0.72f;
+
+	// A : Left Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	float LeftSpeed = 0.72f;
+	
+	// W / S 방향 (카메라 기준 Forward)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Movement|Directional Vectors")
+	FVector ForwardDir = FVector::ZeroVector;
+
+	// A / D 방향 (카메라 기준 Right)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Movement|Directional Vectors")
+	FVector RightDir = FVector::ZeroVector;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement")
+	float NormalSpeed = 300.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement")
+	float SprintSpeedMultiplier = 1.5f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
+	float SprintSpeed; 
+	
+	float LookSensitive;                                // 마우스 민감도
 	
 public:
 	void Attack();
@@ -50,11 +84,6 @@ private:
 	USpringArmComponent* SpringArm;
 	UPROPERTY(VisibleAnywhere)
 	UCameraComponent* Camera;
-	
-	float NormalSpeed;                                  // 기본 이동속도
-	float SprintSpeedMultiplier;                        // 달리기 속도(곱해줄 값)
-	float SprintSpeed;                                  // 실제 달리기 속도 ( 기본 속도 * 계산된 값 )
-	float LookSensitive;                                // 마우스 민감도
 	
 	UPROPERTY(EditAnywhere, Category="Combat")
 	UAnimMontage* AttackMontage;
@@ -74,13 +103,9 @@ private:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
 	UInputAction* AttackAction;
-<<<<<<< HEAD
 	
-	UPROPERTY(EditAnywhere, Category="Camera")
-	float CameraPanSpeed = 2000.f;
-
+protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
-=======
->>>>>>> 6d7b799e81700e4cd6eff19b97ee70f108aeeb92
+
 };
