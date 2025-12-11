@@ -4,24 +4,24 @@
 #include "GameFramework/PlayerController.h"
 #include "AFTitlePlayerController.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class AFO_API AAFTitlePlayerController : public APlayerController
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	virtual void BeginPlay() override;
+    virtual void BeginPlay() override;
 
-	void JoinServer(const FString& InIPAddress);
+    void JoinServer();
+
+//protected:
+//    UFUNCTION(Server, Reliable)
+//    void ServerTravelToBattleZone();
 
 private:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = ASUIPlayerController, Meta = (AllowPrivateAccess))
-	TSubclassOf<UUserWidget> UIWidgetClass;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = ASUIPlayerController, Meta = (AllowPrivateAccess))
+    TSubclassOf<UUserWidget> UIWidgetClass;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = ASUIPlayerController, Meta = (AllowPrivateAccess))
-	TObjectPtr<UUserWidget> UIWidgetInstance;
-
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = ASUIPlayerController, Meta = (AllowPrivateAccess))
+    TObjectPtr<UUserWidget> UIWidgetInstance;
 };

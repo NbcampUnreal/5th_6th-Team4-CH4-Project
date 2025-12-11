@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "AFAttributeComponent.h"
+#include "Components/AFAttributeComponent.h"
 #include "GameFramework/Actor.h"
 
 UAFAttributeComponent::UAFAttributeComponent()

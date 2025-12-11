@@ -27,8 +27,24 @@ void AAFTitlePlayerController::BeginPlay()
 	}
 }
 
-void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
+//void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
+//{
+//	FName NextLevelName = FName(*InIPAddress);
+//	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
+//}
+
+void AAFTitlePlayerController::JoinServer()
 {
-	FName NextLevelName = FName(*InIPAddress);
+	FName NextLevelName = FName(TEXT("AFOBattleZone"));
 	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
-}
+
+	FInputModeGameOnly GameMode;
+	SetInputMode(GameMode);
+
+	bShowMouseCursor = false;
+ }
+
+//void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
+//{
+//	ClientTravel("127.0.0.1", TRAVEL_Absolute);
+//}
