@@ -1,10 +1,9 @@
 #include "Character/AFPlayerCharacter.h"
-
-#include "AFAttributeComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
+#include "Components/AFAttributeComponent.h"
 #include "Player/AFPlayerController.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
@@ -29,6 +28,11 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm);
 	Camera->bUsePawnControlRotation = false;
+}
+
+void AAFPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 }
 
 void AAFPlayerCharacter::BeginPlay()

@@ -18,6 +18,8 @@ class AFO_API AAFPlayerCharacter : public ACharacter
 
 public:
 	AAFPlayerCharacter();
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 
 protected:
 	virtual void BeginPlay() override;
@@ -81,7 +83,7 @@ private:
 	float CameraPanSpeed = 2000.f;
 	
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
 
 };
