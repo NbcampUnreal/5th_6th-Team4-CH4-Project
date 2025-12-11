@@ -24,12 +24,6 @@ void AAFGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(ThisClass, CurrentGamePhase);
 }
 
-// RepNotify 함수 구현
-void AAFGameState::OnRep_RemainingTime()
-{
-	// 인게임 UI에서 이 함수를 호출하기
-}
-
 
 // 서버 권한 : 시간 설정
 void AAFGameState::SetRemainingTime(int32 NewTime)
