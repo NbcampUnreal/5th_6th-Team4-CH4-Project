@@ -11,7 +11,7 @@ class AFO_API AAFTitlePlayerController : public APlayerController
 
 public:
     virtual void BeginPlay() override;
-
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     void JoinServer();
 
 //protected:
@@ -24,4 +24,11 @@ private:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = ASUIPlayerController, Meta = (AllowPrivateAccess))
     TObjectPtr<UUserWidget> UIWidgetInstance;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BGM", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<USoundBase> TitleBGM;
+
+    UPROPERTY()
+    TObjectPtr<UAudioComponent> TitleBGMComponent;
+
 };
