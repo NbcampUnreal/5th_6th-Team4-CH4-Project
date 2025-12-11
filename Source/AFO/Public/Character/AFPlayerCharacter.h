@@ -88,22 +88,6 @@ private:
 	UPROPERTY(EditAnywhere, Category="Combat")
 	UAnimMontage* AttackMontage;
 	
-	// 입력 액션들
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
-	UInputAction* MoveAction;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
-	UInputAction* JumpAction;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
-	UInputAction* LookAction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
-	UInputAction* SprintAction;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
-	UInputAction* AttackAction;
-	
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component

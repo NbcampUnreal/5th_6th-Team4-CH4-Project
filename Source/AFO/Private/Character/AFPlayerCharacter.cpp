@@ -191,6 +191,8 @@ void AAFPlayerCharacter::StartSprint(const FInputActionValue& value)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
 	}
+	bUseControllerRotationYaw = false;
+	GetCharacterMovement()->bOrientRotationToMovement = true;
 }
 
 void AAFPlayerCharacter::StopSprint(const FInputActionValue& value)
@@ -199,6 +201,8 @@ void AAFPlayerCharacter::StopSprint(const FInputActionValue& value)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
 	}
+	bUseControllerRotationYaw = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
 }
 
 void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted)
