@@ -3,10 +3,11 @@
 
 #include "Game/AFGameState.h"
 #include "Net/UnrealNetwork.h"
+#include "Game/AFGameMode.h"
 
 AAFGameState::AAFGameState()
 {
-	RemainingTimeSeconds = 300.f;
+	RemainingTimeSeconds = 60.f;
 }
 
 void AAFGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -22,12 +23,6 @@ void AAFGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 
 	// Phase 변수 복제
 	DOREPLIFETIME(ThisClass, CurrentGamePhase);
-}
-
-// RepNotify 함수 구현
-void AAFGameState::OnRep_RemainingTime()
-{
-	// 인게임 UI에서 이 함수를 호출하기
 }
 
 
@@ -80,6 +75,14 @@ void AAFGameState::UpdateTimer()
 	{
 		// 시간이 0이 되면 타이머 정지 (나중에 게임 종료 로직 추가)
 		GetWorldTimerManager().ClearTimer(GameTimerHandle);
+
+		if (GetLocalRole() == ROLE_Authority)
+		{
+			if (AAFGameMode* GM = GetWorld()->GetAuthGameMode<AAFGameMode>())
+			{
+				GM->EndRound();
+			}
+		}
 	}
 }
 
