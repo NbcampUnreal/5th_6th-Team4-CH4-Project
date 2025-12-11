@@ -157,10 +157,6 @@ void AAFPlayerCharacter::Move(const FInputActionValue& value)
 	// 카메라 기준 Forward / Right 벡터 생성
 	ForwardDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
 	RightDir   = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
-
-	/*// 실제 이동
-	AddMovementInput(ForwardDir, MoveInput.X);
-	AddMovementInput(RightDir,   MoveInput.Y);*/
 }
 
 void AAFPlayerCharacter::StartJump(const FInputActionValue& value)
