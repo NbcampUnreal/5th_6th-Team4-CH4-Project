@@ -6,6 +6,9 @@
 #include "GameFramework/GameState.h"
 #include "AFGameState.generated.h"
 
+// 델리게이트 선언: 시간이 변경될 때마다 UI에게 알림
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTimerChangedDelegate, int32, NewRemainingTime);
+
 // GamePhase 정의
 UENUM(BlueprintType)
 enum class EAFGamePhase : uint8
@@ -18,12 +21,20 @@ enum class EAFGamePhase : uint8
 	EAF_GameOver				UMETA(DisplayName = "GameOver"),
 };
 
+
+
 UCLASS()
 class AFO_API AAFGameState : public AGameState
 {
 	GENERATED_BODY()
 	
 public:
+	AAFGameState();
+
+	// UI가 구독할 델리게이트
+	UPROPERTY(BlueprintAssignable, Category = "AFO|Events")
+	FOnTimerChangedDelegate OnTimerChanged;
+
 	// 스코어 (킬 수)
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "AFO|Score")
 	int32 TeamRedKillScore = 0;
@@ -32,19 +43,36 @@ public:
 	int32 TeamBlueKillScore = 0;
 
 protected:
-	// 남은 시간
-	UPROPERTY(ReplicatedUsing = OnRep_RemainingTime, BlueprintReadOnly, Category = "AFO|Time")
-	int32 RemainingTimeSeconds = 0.f;
+
+
+	// 서버 타이머 핸들
+	FTimerHandle GameTimerHandle;
 
 	// 현재 게임 단계
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "AFO | Phase")
 	EAFGamePhase CurrentGamePhase = EAFGamePhase::EAF_Title;
 
 private:
+	// === Replication ===
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	// 시간이 변경되면 호출됨 (클라이언트 + 서버 수동 호출)
 	UFUNCTION()
 	void OnRep_RemainingTime();
 
 public:
+
+	// 남은 시간
+	UPROPERTY(ReplicatedUsing = OnRep_RemainingTime, BlueprintReadOnly, Category = "AFO|Time")
+	int32 RemainingTimeSeconds = 300.f;
+
+	// === Server Functions ===
+	// 타이머 시작 (GameMode에서 호출)
+	void StartGameTimer();
+
+	// 1초마다 호출될 함수
+	void UpdateTimer();
+
 	// === Server Authority Functions (GameMode에서 사용) ===
 
 	// 서버에서 남은 시간을 설정하는 함수
