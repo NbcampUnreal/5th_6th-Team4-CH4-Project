@@ -46,4 +46,7 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="State")
 	uint8 bIsAttack : 1;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
+	bool bIsSprinting = false;
 };

@@ -13,7 +13,7 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 
 	AttributeComp = CreateDefaultSubobject<UAFAttributeComponent>(TEXT("AttributeComponent"));
 	
-	NormalSpeed = 300.f;
+	NormalSpeed = 400.f;
 	SprintSpeedMultiplier = 1.5f;
 	SprintSpeed = NormalSpeed * SprintSpeedMultiplier;
 	GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;

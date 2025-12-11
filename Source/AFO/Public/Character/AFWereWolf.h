@@ -9,4 +9,10 @@ class AFO_API AAFWereWolf : public AAFPlayerCharacter
 {
 	GENERATED_BODY()
 	
+public:
+	virtual void BeginPlay() override;
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement")
+	float WereWolfMoveSpeed = 200.f; 
 };
