@@ -24,6 +24,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category="Aim")
 	float AimAlpha;
 
+
 protected:
 	virtual void BeginPlay() override;
 };

@@ -72,6 +72,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
 	float SprintSpeed; 
 	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Movement")
+	bool bCanSprint = true;
+	
 	float LookSensitive;                                // 마우스 민감도
 	
 public:

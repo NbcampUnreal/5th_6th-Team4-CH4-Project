@@ -3,30 +3,28 @@
 
 #include "Game/AFGameState.h"
 #include "Net/UnrealNetwork.h"
-#include "Game/AFGameMode.h"
 
 AAFGameState::AAFGameState()
 {
-	RemainingTimeSeconds = 60.f;
+	RemainingTimeSeconds = 300.f;
 }
 
 void AAFGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	// Score º¯¼ö º¹Á¦
+	// Score ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	DOREPLIFETIME(ThisClass, TeamRedKillScore);
 	DOREPLIFETIME(ThisClass, TeamBlueKillScore);
 
-	// ³²Àº ½Ã°£ º¯¼ö º¹Á¦ ¹× RepNotify ¼³Á¤
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½Ã°ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ RepNotify ï¿½ï¿½ï¿½ï¿½
 	DOREPLIFETIME(ThisClass, RemainingTimeSeconds);
 
-	// Phase º¯¼ö º¹Á¦
+	// Phase ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	DOREPLIFETIME(ThisClass, CurrentGamePhase);
 }
 
-
-// ¼­¹ö ±ÇÇÑ : ½Ã°£ ¼³Á¤
+// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ : ï¿½Ã°ï¿½ ï¿½ï¿½ï¿½ï¿½
 void AAFGameState::SetRemainingTime(int32 NewTime)
 {
 	if (GetLocalRole() == ROLE_Authority)
@@ -36,28 +34,28 @@ void AAFGameState::SetRemainingTime(int32 NewTime)
 	}
 }
 
-// ¼­¹ö ±ÇÇÑ : °ÔÀÓ ´Ü°è ¼³Á¤
+// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ : ï¿½ï¿½ï¿½ï¿½ ï¿½Ü°ï¿½ ï¿½ï¿½ï¿½ï¿½
 void AAFGameState::SetGamePhase(EAFGamePhase NewPhase)
 {
 	if (GetLocalRole() == ROLE_Authority)
 	{
 		CurrentGamePhase = NewPhase;
-		// ÀçÇö´Ô ÀÌ º¯¼ö º¯°æÀ» Åä´ë·Î È­¸é ÀüÈ¯ ÇØÁÖ½Ã¸é µË´Ï´Ù
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ È­ï¿½ï¿½ ï¿½ï¿½È¯ ï¿½ï¿½ï¿½Ö½Ã¸ï¿½ ï¿½Ë´Ï´ï¿½
 	}
 }
 
 
 void AAFGameState::StartGameTimer()
 {
-	// ¼­¹ö¿¡¼­¸¸ ½ÇÇà
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	if (GetLocalRole() == ROLE_Authority)
 	{
 		GetWorldTimerManager().SetTimer(
 			GameTimerHandle,
 			this,
 			&AAFGameState::UpdateTimer,
-			1.0f, // 1ÃÊ °£°Ý
-			true  // ¹Ýº¹
+			1.0f, // 1ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+			true  // ï¿½Ýºï¿½
 		);
 	}
 }
@@ -68,26 +66,18 @@ void AAFGameState::UpdateTimer()
 	{
 		RemainingTimeSeconds--;
 
-		// ¼­¹ö´Â OnRepÀÌ ÀÚµ¿ È£ÃâµÇÁö ¾ÊÀ¸¹Ç·Î Á÷Á¢ È£ÃâÇÏ¿© µ¨¸®°ÔÀÌÆ®¸¦ ¹ß»ý½ÃÅ´
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ OnRepï¿½ï¿½ ï¿½Úµï¿½ È£ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½ï¿½Ï¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ß»ï¿½ï¿½ï¿½Å´
 		OnRep_RemainingTime();
 	}
 	else
 	{
-		// ½Ã°£ÀÌ 0ÀÌ µÇ¸é Å¸ÀÌ¸Ó Á¤Áö (³ªÁß¿¡ °ÔÀÓ Á¾·á ·ÎÁ÷ Ãß°¡)
+		// ï¿½Ã°ï¿½ï¿½ï¿½ 0ï¿½ï¿½ ï¿½Ç¸ï¿½ Å¸ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ß¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ß°ï¿½)
 		GetWorldTimerManager().ClearTimer(GameTimerHandle);
-
-		if (GetLocalRole() == ROLE_Authority)
-		{
-			if (AAFGameMode* GM = GetWorld()->GetAuthGameMode<AAFGameMode>())
-			{
-				GM->EndRound();
-			}
-		}
 	}
 }
 
 void AAFGameState::OnRep_RemainingTime()
 {
-	// µ¨¸®°ÔÀÌÆ® ¹æ¼Û -> ÀÌ°É ±¸µ¶ÇÏ°í ÀÖ´Â À§Á¬(HUD)ÀÌ ¹ÝÀÀÇÔ
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ -> ï¿½Ì°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ ï¿½Ö´ï¿½ ï¿½ï¿½ï¿½ï¿½(HUD)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	OnTimerChanged.Broadcast(RemainingTimeSeconds);
 }
