@@ -12,7 +12,8 @@ class AFO_API AAFTitlePlayerController : public APlayerController
 public:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-    void JoinServer();
+    //void JoinServer();
+    void JoinServer(const FString& InIPAddress);
 
 //protected:
 //    UFUNCTION(Server, Reliable)
