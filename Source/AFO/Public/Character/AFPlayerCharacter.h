@@ -38,7 +38,7 @@ protected:
 	UFUNCTION()
 	void StopSprint(const FInputActionValue& value);    // 달리기 끝
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
 	bool bIsAttacking = false;
 	UFUNCTION()
 	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
