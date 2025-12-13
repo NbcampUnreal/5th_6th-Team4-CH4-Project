@@ -13,7 +13,7 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 
 	AttributeComp = CreateDefaultSubobject<UAFAttributeComponent>(TEXT("AttributeComponent"));
 	
-	NormalSpeed = 300.f;
+	NormalSpeed = 400.f;
 	SprintSpeedMultiplier = 1.5f;
 	SprintSpeed = NormalSpeed * SprintSpeedMultiplier;
 	GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
@@ -21,8 +21,9 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 	// 스프링암 생성
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
-	SpringArm->TargetArmLength = 350.f;
+	SpringArm->TargetArmLength = 400.f;
 	SpringArm->bUsePawnControlRotation = true;
+	SpringArm->SetRelativeRotation(FRotator(-70.f, 0.f, 0.f));
 
 	// 카메라 생성
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
@@ -165,10 +166,6 @@ void AAFPlayerCharacter::Move(const FInputActionValue& value)
 	// 카메라 기준 Forward / Right 벡터 생성
 	ForwardDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
 	RightDir   = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
-
-	/*// 실제 이동
-	AddMovementInput(ForwardDir, MoveInput.X);
-	AddMovementInput(RightDir,   MoveInput.Y);*/
 }
 
 void AAFPlayerCharacter::StartJump(const FInputActionValue& value)
@@ -199,18 +196,26 @@ void AAFPlayerCharacter::Look(const FInputActionValue& value)
 
 void AAFPlayerCharacter::StartSprint(const FInputActionValue& value)
 {
+	if (!bCanSprint) return;
+	
 	if (GetCharacterMovement())
 	{
 		GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
 	}
+	bUseControllerRotationYaw = false;
+	GetCharacterMovement()->bOrientRotationToMovement = true;
 }
 
 void AAFPlayerCharacter::StopSprint(const FInputActionValue& value)
 {
+	if (!bCanSprint) return;
+	
 	if (GetCharacterMovement())
 	{
 		GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
 	}
+	/*bUseControllerRotationYaw = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;*/
 }
 
 void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted)

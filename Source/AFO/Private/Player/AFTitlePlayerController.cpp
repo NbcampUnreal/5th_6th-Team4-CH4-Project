@@ -1,6 +1,8 @@
 #include "Player/AFTitlePlayerController.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
+#include "Components/AudioComponent.h"
 
 void AAFTitlePlayerController::BeginPlay()
 {
@@ -25,24 +27,69 @@ void AAFTitlePlayerController::BeginPlay()
 			bShowMouseCursor = true;
 		}
 	}
+
+	if (IsValid(TitleBGM) && TitleBGMComponent == nullptr)
+	{
+		TitleBGMComponent = UGameplayStatics::SpawnSound2D(this, TitleBGM, 1.0f, 1.0f, 0.0f);
+		if (TitleBGMComponent)
+		{
+			TitleBGMComponent->bIsUISound = true; // ¼±ÅÃ
+		}
+	}
 }
 
-//void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
-//{
-//	FName NextLevelName = FName(*InIPAddress);
-//	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
-//}
-
-void AAFTitlePlayerController::JoinServer()
+void AAFTitlePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	FName NextLevelName = FName(TEXT("AFOBattleZone"));
-	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
+	if (TitleBGMComponent)
+	{
+		TitleBGMComponent->Stop();
+		TitleBGMComponent = nullptr;
+	}
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
+{
+	const FString Trimmed = InIPAddress.TrimStartAndEnd();
 
 	FInputModeGameOnly GameMode;
 	SetInputMode(GameMode);
-
 	bShowMouseCursor = false;
- }
+
+	if (IsValid(UIWidgetInstance))
+	{
+		UIWidgetInstance->RemoveFromParent();
+		UIWidgetInstance = nullptr;
+	}
+
+	if (TitleBGMComponent)
+	{
+		TitleBGMComponent->Stop();
+		TitleBGMComponent = nullptr;
+	}
+
+	if (Trimmed.IsEmpty())
+	{
+		const FString MapURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOBattleZone?listen");
+		UGameplayStatics::OpenLevel(GetWorld(), FName(*MapURL), true);
+		return;
+	}
+
+	const FString Address = FString::Printf(TEXT("%s:7777"), *Trimmed);
+	ClientTravel(Address, TRAVEL_Absolute);
+}
+
+//void AAFTitlePlayerController::JoinServer()
+//{
+//	FName NextLevelName = FName(TEXT("AFOBattleZone"));
+//	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
+//
+//	FInputModeGameOnly GameMode;
+//	SetInputMode(GameMode);
+//
+//	bShowMouseCursor = false;
+// }
 
 //void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
 //{
