@@ -10,26 +10,23 @@ class APlayerController;
 UCLASS()
 class AFO_API AAFGameMode : public AGameMode
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    AAFGameMode();
+	AAFGameMode();
 
-    virtual void BeginPlay() override;
-    virtual void PostLogin(APlayerController* NewPlayer) override;
-    virtual void Logout(AController* Exiting) override;
+	virtual void BeginPlay() override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void Logout(AController* Exiting) override;
 
-    void ReportKill(APlayerController* Killer, APlayerController* Victim);
+	void ReportKill(APlayerController* Killer, APlayerController* Victim);
+	void EndRound();
 
 private:
-    int32 RoundDuration;
-    FTimerHandle RoundTimerHandle;
+	int32 RoundDuration;
 
-    TMap<APlayerController*, uint8> PlayerTeams;
+	TMap<APlayerController*, uint8> PlayerTeams;
 
-    void StartRound();
-    void TickRound();
-    void EndRound();
-
-    AAFGameState* GetAFGameState() const;
+	void StartRound();
+	AAFGameState* GetAFGameState() const;
 };

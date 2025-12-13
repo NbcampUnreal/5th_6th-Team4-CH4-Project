@@ -29,15 +29,34 @@ void UUW_TitleLayout::NativeConstruct()
 	}
 }
 
+//void UUW_TitleLayout::OnPlayButtonClicked()
+//{
+//	AAFTitlePlayerController* PlayerController = GetOwningPlayer<AAFTitlePlayerController>();
+//	if (IsValid(PlayerController) == true)
+//	{
+//		// FText ServerIP = ServerIPEditableText->GetText();
+//		PlayerController->JoinServer();
+//	}
+//}
+
 void UUW_TitleLayout::OnPlayButtonClicked()
 {
-	AAFTitlePlayerController* PlayerController = GetOwningPlayer<AAFTitlePlayerController>();
-	if (IsValid(PlayerController) == true)
+	AAFTitlePlayerController* PC = GetOwningPlayer<AAFTitlePlayerController>();
+	if (!IsValid(PC)) return;
+
+	FString IP;
+	if (ServerIPEditableText)
 	{
-		// FText ServerIP = ServerIPEditableText->GetText();
-		PlayerController->JoinServer();
+		IP = ServerIPEditableText->GetText().ToString().TrimStartAndEnd();
 	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("ServerIPEditableText is null. Check BindWidget name."));
+	}
+
+	PC->JoinServer(IP);
 }
+
 
 void UUW_TitleLayout::OnExitButtonClicked()
 {

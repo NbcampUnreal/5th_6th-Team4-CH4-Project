@@ -32,9 +32,9 @@ protected:
 	UFUNCTION()
 	void Look(const FInputActionValue& value);          // 마우스 시야회전
 	UFUNCTION()
-	void StartSprint(const FInputActionValue& value);   // 달리기 시작
+	virtual void StartSprint(const FInputActionValue& Value);
 	UFUNCTION()
-	void StopSprint(const FInputActionValue& value);    // 달리기 끝
+	virtual void StopSprint(const FInputActionValue& Value);
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	bool bIsAttacking = false;
@@ -65,6 +65,18 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Movement|Directional Vectors")
 	FVector RightDir = FVector::ZeroVector;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement")
+	float NormalSpeed = 300.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement")
+	float SprintSpeedMultiplier = 1.5f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
+	float SprintSpeed; 
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Movement")
+	bool bCanSprint = true;
+	
+	float LookSensitive;                                // 마우스 민감도
+	
 public:
 	void Attack();
 	UFUNCTION()
@@ -76,33 +88,8 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	UCameraComponent* Camera;
 	
-	float NormalSpeed;                                  // 기본 이동속도
-	float SprintSpeedMultiplier;                        // 달리기 속도(곱해줄 값)
-	float SprintSpeed;                                  // 실제 달리기 속도 ( 기본 속도 * 계산된 값 )
-	float LookSensitive;                                // 마우스 민감도
-	
 	UPROPERTY(EditAnywhere, Category="Combat")
 	UAnimMontage* AttackMontage;
-	
-	// 입력 액션들
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
-	UInputAction* MoveAction;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
-	UInputAction* JumpAction;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
-	UInputAction* LookAction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
-	UInputAction* SprintAction;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
-	UInputAction* AttackAction;
-
-	
-	UPROPERTY(EditAnywhere, Category="Camera")
-	float CameraPanSpeed = 2000.f;
 	
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
