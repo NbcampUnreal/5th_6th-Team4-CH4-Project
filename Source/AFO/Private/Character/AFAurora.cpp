@@ -10,6 +10,20 @@ AAFAurora::AAFAurora()
 	AimAlpha = 1.f;
 }
 
+void AAFAurora::StartSprint(const FInputActionValue& Value)
+{
+	Super::StartSprint(Value);
+
+	bIsSprinting = true;
+}
+
+void AAFAurora::StopSprint(const FInputActionValue& Value)
+{
+	Super::StartSprint(Value);
+
+	bIsSprinting = true;
+}
+
 void AAFAurora::BeginPlay()
 {
 	Super::BeginPlay();

@@ -2,6 +2,7 @@
 #include "Character/AFPlayerCharacter.h"
 #include "Character/AFDarkKnight.h"
 #include "Character/AFMage.h"
+#include "Character/AFAurora.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -49,6 +50,10 @@ void UAFAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		else if (AAFMage* Mage = Cast<AAFMage>(BaseChar))
 		{
 			bIsSprinting = Mage->bIsSprinting;
+		}
+		else if (AAFAurora* Aurora = Cast<AAFAurora>(BaseChar))
+		{
+			bIsSprinting = Aurora->bIsSprinting;
 		}
 		else
 		{
