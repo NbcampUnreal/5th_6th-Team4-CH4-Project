@@ -12,7 +12,7 @@ AAFArcher::AAFArcher()
 	AimAlpha = 1.f;
 	
 	// 기본 이동 속도 설정
-	GetCharacterMovement()->MaxWalkSpeed = 900.f;
+	GetCharacterMovement()->MaxWalkSpeed = 600.f;
 }
 
 void AAFArcher::BeginPlay()
