@@ -3,6 +3,7 @@
 
 #include "Components/AFAttributeComponent.h"
 #include "GameFramework/Actor.h"
+#include "Player/AFPlayerState.h"
 
 UAFAttributeComponent::UAFAttributeComponent()
 {
@@ -15,7 +16,7 @@ void UAFAttributeComponent::BeginPlay()
 	Health = MaxHealth;
 }
 
-void UAFAttributeComponent::ApplyDamage(float Damage)
+void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 {
 	if (Damage <= 0.f) return;
 
@@ -27,6 +28,27 @@ void UAFAttributeComponent::ApplyDamage(float Damage)
 	if (Health <= 0.f)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("%s is Dead!"), *GetOwner()->GetName());
+
+		// 죽은 플레이어 PS
+		if (AActor* OwnerActor = GetOwner())
+		{
+			if (APawn* PawnOwner = Cast<APawn>(OwnerActor))
+			{
+				if (AAFPlayerState* VictimPS = PawnOwner->GetPlayerState<AAFPlayerState>())
+				{
+					VictimPS->AddDeath();
+				}
+			}
+		}
+
+		// 공격자 Kill 증가
+		if (InstigatedBy)
+		{
+			if (AAFPlayerState* AttackerPS = InstigatedBy->GetPlayerState<AAFPlayerState>())
+			{
+				AttackerPS->AddKill();
+			}
+		}
 	}
 }
 

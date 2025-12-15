@@ -1,11 +1,11 @@
 #include "Character/AFPlayerCharacter.h"
-
 #include "Components/AFAttributeComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
 #include "Player/AFPlayerController.h"
+#include "Net/UnrealNetwork.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
@@ -31,6 +31,14 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 	Camera->bUsePawnControlRotation = false;
 	bUseControllerRotationYaw = true;
 	GetCharacterMovement()->bOrientRotationToMovement = false;
+}
+
+void AAFPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AAFPlayerCharacter, bIsAttacking);
+	
 }
 
 void AAFPlayerCharacter::BeginPlay()
@@ -259,7 +267,7 @@ void AAFPlayerCharacter::DealDamage()
 
 			if (TargetAttr)
 			{
-				TargetAttr->ApplyDamage(20.f);
+				TargetAttr->ApplyDamage(20.f, GetController());
 				UE_LOG(LogTemp, Warning, TEXT("공격 성공 → %s에게 데미지 20 적용"), *HitActor->GetName());
 			}
 			else

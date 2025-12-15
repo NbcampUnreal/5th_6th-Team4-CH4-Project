@@ -25,5 +25,5 @@ public:
 	float Health = 100.f;
 
 	// 데미지 적용 함수
-	void ApplyDamage(float Damage);
+	void ApplyDamage(float Damage, AController* InstigatedBy);
 };
