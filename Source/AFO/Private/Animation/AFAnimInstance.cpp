@@ -1,6 +1,7 @@
 #include "Animation/AFAnimInstance.h"
 #include "Character/AFPlayerCharacter.h"
 #include "Character/AFDarkKnight.h"
+#include "Character/AFMage.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -44,6 +45,10 @@ void UAFAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		if (AAFDarkKnight* DK = Cast<AAFDarkKnight>(BaseChar))
 		{
 			bIsSprinting = DK->bIsSprinting;
+		}
+		else if (AAFMage* Mage = Cast<AAFMage>(BaseChar))
+		{
+			bIsSprinting = Mage->bIsSprinting;
 		}
 		else
 		{
