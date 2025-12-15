@@ -38,6 +38,41 @@ void AAFPlayerState::OnRep_DeathCount()
 	UE_LOG(LogTemp, Warning, TEXT("DeathCount Updated: %d"), DeathCount);
 }
 
+//Mana추가
+
+void AAFPlayerState::SetMana(float NewMana)
+{
+	if (!HasAuthority()) return;
+
+	CurrentMana = FMath::Clamp(NewMana, 0.f, MaxMana);
+}
+
+void AAFPlayerState::AddMana(float Amount)
+{
+	if (!HasAuthority()) return;
+
+	SetMana(CurrentMana + Amount);
+}
+
+bool AAFPlayerState::ConsumeMana(float Amount)
+{
+	if (!HasAuthority()) return false;
+
+	if (CurrentMana < Amount)
+	{
+		return false;
+	}
+
+	SetMana(CurrentMana - Amount);
+	return true;
+}
+
+void AAFPlayerState::OnRep_CurrentMana()
+{
+	UE_LOG(LogTemp, Log, TEXT("Mana Updated: %f / %f"), CurrentMana, MaxMana);
+	
+}
+
 void AAFPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
