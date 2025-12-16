@@ -21,7 +21,7 @@ void AAFAurora::StopSprint(const FInputActionValue& Value)
 {
 	Super::StartSprint(Value);
 
-	bIsSprinting = true;
+	bIsSprinting = false;
 }
 
 void AAFAurora::BeginPlay()
