@@ -20,6 +20,8 @@ public:
 	AAFPlayerCharacter();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	void SkillE();
+	void SkillQ();
 
 protected:
 	virtual void BeginPlay() override;
@@ -76,13 +78,40 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Movement")
 	bool bCanSprint = true;
+
+	// Skill Montages
+	UPROPERTY(EditAnywhere, Category="Skill")
+	UAnimMontage* SkillEMontage;
+
+	UPROPERTY(EditAnywhere, Category="Skill")
+	UAnimMontage* SkillQMontage;
+
+	// Mana Cost
+	UPROPERTY(EditAnywhere, Category="Skill")
+	float SkillEManaCost = 30.f;
+
+	UPROPERTY(EditAnywhere, Category="Skill")
+	float SkillQManaCost = 80.f;
 	
-	float LookSensitive;                                // 마우스 민감도
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
+	bool bIsUsingSkill = false;
 	
 public:
 	void Attack();
+	
 	UFUNCTION()
 	void DealDamage();
+	
+	UFUNCTION()
+	void HandleOnCheckHit();
+	
+	UFUNCTION()
+	void HandleOnCheckInputAttack();
+	
+	virtual void BeginAttack();
+	
+	UFUNCTION()
+	virtual void EndAttack(UAnimMontage* InMontage, bool bInterruped);
 	
 private:
 	UPROPERTY(VisibleAnywhere)
@@ -93,8 +122,21 @@ private:
 	UPROPERTY(EditAnywhere, Category="Combat")
 	UAnimMontage* AttackMontage;
 	
+	void InputAttackMelee(const FInputActionValue& InValue);
+	
 protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
+	
+	FString AttackAnimMontageSectionPrefix = FString(TEXT("Attack"));
 
+	int32 MaxComboCount = 3;
+
+	int32 CurrentComboCount = 0;
+
+	bool bIsNowAttacking = false;
+
+	bool bIsAttackKeyPressed = false;
+
+	FOnMontageEnded OnMeleeAttackMontageEndedDelegate;
 };

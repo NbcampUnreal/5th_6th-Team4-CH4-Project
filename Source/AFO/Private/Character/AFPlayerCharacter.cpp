@@ -4,9 +4,12 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
+#include "Animation/AFAnimInstance.h"
 #include "Player/AFPlayerController.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/AFPlayerState.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Animation/AnimInstance.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
@@ -42,6 +45,54 @@ void AAFPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	
 }
 
+void AAFPlayerCharacter::SkillE()
+{
+	UE_LOG(LogTemp, Warning, TEXT("SkillE Input"));
+
+	if (bIsAttacking || bIsUsingSkill) return;
+
+	AAFPlayerState* PS = GetPlayerState<AAFPlayerState>();
+	if (!PS) return;
+
+	if (!PS->ConsumeMana(SkillEManaCost))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SkillE 실패: Mana 부족 (현재 %.1f)"), PS->GetCurrentMana());
+		return;
+	}
+
+	if (SkillEMontage)
+	{
+		bIsUsingSkill = true;
+		PlayAnimMontage(SkillEMontage);
+
+		UE_LOG(LogTemp, Warning, TEXT("SkillE 성공: Mana %.1f 소모"), SkillEManaCost);
+	}
+}
+
+void AAFPlayerCharacter::SkillQ()
+{
+	UE_LOG(LogTemp, Warning, TEXT("SkillQ Input"));
+
+	if (bIsAttacking || bIsUsingSkill) return;
+
+	AAFPlayerState* PS = GetPlayerState<AAFPlayerState>();
+	if (!PS) return;
+
+	if (!PS->ConsumeMana(SkillQManaCost))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SkillQ 실패: Mana 부족 (현재 %.1f)"), PS->GetCurrentMana());
+		return;
+	}
+
+	if (SkillQMontage)
+	{
+		bIsUsingSkill = true;
+		PlayAnimMontage(SkillQMontage);
+
+		UE_LOG(LogTemp, Warning, TEXT("SkillQ 성공: Mana %.1f 소모"), SkillQManaCost);
+	}
+}
+
 void AAFPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -50,8 +101,6 @@ void AAFPlayerCharacter::BeginPlay()
 	{
 		AnimInstance->OnMontageEnded.AddDynamic(this, &AAFPlayerCharacter::OnAttackMontageEnded);
 	}
-	
-	UAnimInstance* Anim = GetMesh()->GetAnimInstance();
 }
 
 void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -123,6 +172,26 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 					ETriggerEvent::Started,
 					this,
 					&AAFPlayerCharacter::Attack
+				);
+			}
+			
+			if (PlayerController->SkillEAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->SkillEAction,
+					ETriggerEvent::Started,
+					this,
+					&AAFPlayerCharacter::SkillE
+				);
+			}
+
+			if (PlayerController->SkillQAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->SkillQAction,
+					ETriggerEvent::Started,
+					this,
+					&AAFPlayerCharacter::SkillQ
 				);
 			}
 		}
@@ -220,6 +289,16 @@ void AAFPlayerCharacter::StopSprint(const FInputActionValue& value)
 void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsAttacking = false; 
+	
+	if (Montage == AttackMontage)
+	{
+		bIsAttacking = false;
+	}
+
+	if (Montage == SkillEMontage || Montage == SkillQMontage)
+	{
+		bIsUsingSkill = false;
+	}
 }
 
 void AAFPlayerCharacter::Attack()
@@ -303,4 +382,80 @@ void AAFPlayerCharacter::DealDamage()
 	}
 }
 
+void AAFPlayerCharacter::HandleOnCheckHit()
+{
+	UKismetSystemLibrary::PrintString(this, TEXT("HandleOnCheckHit()"));
+}
 
+void AAFPlayerCharacter::HandleOnCheckInputAttack()
+{
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	checkf(IsValid(AnimInstance), TEXT("Invalid AnimInstance"));
+
+	if (bIsAttackKeyPressed == true)
+	{
+		CurrentComboCount = FMath::Clamp(CurrentComboCount + 1, 1, MaxComboCount);
+
+		const FName NextSectionName = *FString::Printf(TEXT("%s%02d"), *AttackAnimMontageSectionPrefix, CurrentComboCount);
+
+		if (AttackMontage)
+		{
+			AnimInstance->Montage_JumpToSection(NextSectionName, AttackMontage);
+		}
+
+		bIsAttackKeyPressed = false;
+	}
+}
+
+void AAFPlayerCharacter::EndAttack(UAnimMontage* InMontage, bool bInterruped)
+{
+	ensureMsgf(CurrentComboCount != 0, TEXT("CurrentComboCount == 0"));
+
+	CurrentComboCount = 0;
+	bIsAttackKeyPressed = false;
+	bIsNowAttacking = false;
+
+	if (OnMeleeAttackMontageEndedDelegate.IsBound() == true)
+	{
+		OnMeleeAttackMontageEndedDelegate.Unbind();
+	}
+}
+	
+void AAFPlayerCharacter::InputAttackMelee(const FInputActionValue& InValue)
+{
+	if (GetCharacterMovement()->IsFalling() == true)
+	{
+		return;
+	}
+
+	if (0 == CurrentComboCount)
+	{
+		BeginAttack();
+	}
+	else
+	{
+		ensure(FMath::IsWithinInclusive<int32>(CurrentComboCount, 1, MaxComboCount));
+		bIsAttackKeyPressed = true;
+	}
+}
+
+void AAFPlayerCharacter::BeginAttack()
+{
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	checkf(IsValid(AnimInstance), TEXT("Invalid AnimInstance"));
+
+	bIsNowAttacking = true;
+
+	if (IsValid(AttackMontage) && !AnimInstance->Montage_IsPlaying(AttackMontage))
+	{
+		AnimInstance->Montage_Play(AttackMontage);
+	}
+
+	CurrentComboCount = 1;
+
+	if (!OnMeleeAttackMontageEndedDelegate.IsBound())
+	{
+		OnMeleeAttackMontageEndedDelegate.BindUObject(this, &ThisClass::EndAttack);
+		AnimInstance->Montage_SetEndDelegate(OnMeleeAttackMontageEndedDelegate, AttackMontage);
+	}
+}

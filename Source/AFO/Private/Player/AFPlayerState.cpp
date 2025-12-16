@@ -11,7 +11,7 @@ AAFPlayerState::AAFPlayerState()
 	KillCount = 0;
 	DeathCount = 0;
 	
-	MaxMana = 100.f;
+	MaxMana = 10000.f;
 	CurrentMana = MaxMana;
 }
 
