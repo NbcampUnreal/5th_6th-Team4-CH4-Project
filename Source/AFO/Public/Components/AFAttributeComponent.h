@@ -17,13 +17,21 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-public:	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Attribute")
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Attribute")
 	float MaxHealth = 100.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Attribute")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Attribute")
 	float Health = 100.f;
 
-	// 데미지 적용 함수
+	//사망 상태 플래그
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Attribute")
+	bool bIsDead = false;
+
+public:
 	void ApplyDamage(float Damage, AController* InstigatedBy);
+
+protected:
+	// 사망 처리 분리
+	void HandleDeath(AController* InstigatedBy);
 };

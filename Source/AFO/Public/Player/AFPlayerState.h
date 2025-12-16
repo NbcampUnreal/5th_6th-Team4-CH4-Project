@@ -39,6 +39,25 @@ protected:
 
 	UFUNCTION()
 	void OnRep_DeathCount();
+//Mana추가
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Mana")
+	float MaxMana = 100.f;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentMana)
+	float CurrentMana;
+
+public:
+	float GetCurrentMana() const { return CurrentMana; }
+	float GetMaxMana() const { return MaxMana; }
+
+	void SetMana(float NewMana);
+	void AddMana(float Amount);
+	bool ConsumeMana(float Amount);
+
+protected:
+	UFUNCTION()
+	void OnRep_CurrentMana();
 
 public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

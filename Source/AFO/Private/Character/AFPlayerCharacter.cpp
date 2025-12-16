@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "Player/AFPlayerController.h"
 #include "Net/UnrealNetwork.h"
+#include "Player/AFPlayerState.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
@@ -224,16 +225,36 @@ void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInter
 void AAFPlayerCharacter::Attack()
 {
 	UE_LOG(LogTemp, Warning, TEXT("AttackInput()"));
-	
-	if (bIsAttacking) 
+
+	if (bIsAttacking)
 	{
-		return; // 이미 공격 중이면 무시
+		return;
 	}
 
+	// PlayerState 가져오기
+	AAFPlayerState* PS = GetPlayerState<AAFPlayerState>();
+	if (!PS)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Attack 실패: PlayerState 없음"));
+		return;
+	}
+
+	const float AttackManaCost = 20.f;
+
+	// Mana 부족 체크
+	if (!PS->ConsumeMana(AttackManaCost))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Attack 실패: Mana 부족 (현재 마나: %.1f)"), PS->GetCurrentMana());
+		return;
+	}
+
+	// Mana 충분 → 공격 실행
 	if (AttackMontage)
 	{
 		bIsAttacking = true;
 		PlayAnimMontage(AttackMontage);
+
+		UE_LOG(LogTemp, Warning, TEXT("Attack 성공: Mana %.1f 소모"), AttackManaCost);
 	}
 }
 
