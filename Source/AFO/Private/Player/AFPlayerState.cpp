@@ -9,7 +9,7 @@
 AAFPlayerState::AAFPlayerState()
 {
 	MaxHealth = 100.0f;
-	MaxMana = 100.0f;
+	MaxMana = 1000.0f;
 	CurrentHealth = MaxHealth;
 	CurrentMana = MaxMana;
 	KillCount = 0;

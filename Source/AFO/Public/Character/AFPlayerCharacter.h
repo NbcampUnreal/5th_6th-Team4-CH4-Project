@@ -20,6 +20,10 @@ public:
 	AAFPlayerCharacter();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	UFUNCTION(Server, Reliable)
+	void ServerRPC_SkillE();
+	UFUNCTION(Server, Reliable)
+	void ServerRPC_SkillQ();
 
 protected:
 	virtual void BeginPlay() override;
@@ -37,65 +41,113 @@ protected:
 	virtual void StartSprint(const FInputActionValue& Value);
 	UFUNCTION()
 	virtual void StopSprint(const FInputActionValue& Value);
-	
+
+
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
 	bool bIsAttacking = false;
 	UFUNCTION()
 	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
-	
+
 	// W : Forward Speed
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Directional Speed")
 	float ForwardSpeed = 1.0f;
 
 	// S : Backward Speed
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Directional Speed")
 	float BackwardSpeed = 0.65f;
 
 	// D : Right Speed
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Directional Speed")
 	float RightSpeed = 0.72f;
 
 	// A : Left Speed
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement|Directional Speed")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Directional Speed")
 	float LeftSpeed = 0.72f;
-	
+
 	// W / S 방향 (카메라 기준 Forward)
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Movement|Directional Vectors")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement|Directional Vectors")
 	FVector ForwardDir = FVector::ZeroVector;
 
 	// A / D 방향 (카메라 기준 Right)
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Movement|Directional Vectors")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement|Directional Vectors")
 	FVector RightDir = FVector::ZeroVector;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement")
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float NormalSpeed = 300.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float SprintSpeedMultiplier = 1.5f;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
-	float SprintSpeed; 
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Movement")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+	float SprintSpeed;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
 	bool bCanSprint = true;
-	
-	float LookSensitive;                                // 마우스 민감도
-	
+
+	// Skill Montages
+	UPROPERTY(EditAnywhere, Category = "Skill")
+	UAnimMontage* SkillEMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Skill")
+	UAnimMontage* SkillQMontage;
+
+	// Mana Cost
+	UPROPERTY(EditAnywhere, Category = "Skill")
+	float SkillEManaCost = 30.f;
+
+	UPROPERTY(EditAnywhere, Category = "Skill")
+	float SkillQManaCost = 80.f;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
+	bool bIsUsingSkill = false;
+
 public:
 	void Attack();
+
 	UFUNCTION()
 	void DealDamage();
-	
+
+	UFUNCTION()
+	void HandleOnCheckHit();
+
+	UFUNCTION()
+	void HandleOnCheckInputAttack();
+
+	virtual void BeginAttack();
+
+	UFUNCTION()
+	virtual void EndAttack(UAnimMontage* InMontage, bool bInterruped);
+
 private:
 	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArm;
 	UPROPERTY(VisibleAnywhere)
 	UCameraComponent* Camera;
-	
-	UPROPERTY(EditAnywhere, Category="Combat")
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
 	UAnimMontage* AttackMontage;
-	
+
+	void InputAttackMelee(const FInputActionValue& InValue);
+
 protected:
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="Component")
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
+
+	FString AttackAnimMontageSectionPrefix = FString(TEXT("Attack"));
+
+	int32 MaxComboCount = 3;
+
+	int32 CurrentComboCount = 0;
+
+	bool bIsNowAttacking = false;
+
+	bool bIsAttackKeyPressed = false;
+
+	FOnMontageEnded OnMeleeAttackMontageEndedDelegate;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlaySkillEMontage();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlaySkillQMontage();
 
 
 
