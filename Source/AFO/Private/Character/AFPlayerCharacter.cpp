@@ -1,11 +1,12 @@
 #include "Character/AFPlayerCharacter.h"
-
 #include "Components/AFAttributeComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
 #include "Player/AFPlayerController.h"
+#include "Net/UnrealNetwork.h"
+#include "Player/AFPlayerState.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
@@ -21,8 +22,9 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 	// 스프링암 생성
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(RootComponent);
-	SpringArm->TargetArmLength = 350.f;
+	SpringArm->TargetArmLength = 400.f;
 	SpringArm->bUsePawnControlRotation = true;
+	SpringArm->SetRelativeRotation(FRotator(-70.f, 0.f, 0.f));
 
 	// 카메라 생성
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
@@ -30,6 +32,14 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 	Camera->bUsePawnControlRotation = false;
 	bUseControllerRotationYaw = true;
 	GetCharacterMovement()->bOrientRotationToMovement = false;
+}
+
+void AAFPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AAFPlayerCharacter, bIsAttacking);
+	
 }
 
 void AAFPlayerCharacter::BeginPlay()
@@ -187,6 +197,8 @@ void AAFPlayerCharacter::Look(const FInputActionValue& value)
 
 void AAFPlayerCharacter::StartSprint(const FInputActionValue& value)
 {
+	if (!bCanSprint) return;
+	
 	if (GetCharacterMovement())
 	{
 		GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
@@ -197,12 +209,12 @@ void AAFPlayerCharacter::StartSprint(const FInputActionValue& value)
 
 void AAFPlayerCharacter::StopSprint(const FInputActionValue& value)
 {
+	if (!bCanSprint) return;
+	
 	if (GetCharacterMovement())
 	{
 		GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
 	}
-	bUseControllerRotationYaw = true;
-	GetCharacterMovement()->bOrientRotationToMovement = false;
 }
 
 void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted)
@@ -212,22 +224,19 @@ void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInter
 
 void AAFPlayerCharacter::Attack()
 {
-	UE_LOG(LogTemp, Warning, TEXT("AttackInput()"));
-	
-	if (bIsAttacking) 
-	{
-		return; // 이미 공격 중이면 무시
-	}
+	if (bIsAttacking) return;
 
-	if (AttackMontage)
-	{
-		bIsAttacking = true;
-		PlayAnimMontage(AttackMontage);
-	}
+	// 클라이언트에서 Server RPC 호출
+	ServerAttackRequest();
 }
 
 void AAFPlayerCharacter::DealDamage()
 {
+	if (!GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	
 	UE_LOG(LogTemp, Warning, TEXT("▶ DealDamage() 호출됨 — 실제 공격 판정 실행"));
 
 	// 공격 범위(전방 150cm) 트레이스
@@ -256,7 +265,7 @@ void AAFPlayerCharacter::DealDamage()
 
 			if (TargetAttr)
 			{
-				TargetAttr->ApplyDamage(20.f);
+				TargetAttr->ApplyDamage(20.f, GetController());
 				UE_LOG(LogTemp, Warning, TEXT("공격 성공 → %s에게 데미지 20 적용"), *HitActor->GetName());
 			}
 			else
@@ -270,5 +279,49 @@ void AAFPlayerCharacter::DealDamage()
 		UE_LOG(LogTemp, Warning, TEXT("공격 실패: 타격 없음"));
 	}
 }
+
+
+void AAFPlayerCharacter::ServerAttackRequest_Implementation()
+{
+	// 서버에서만 실행됩니다.
+
+	AAFPlayerState* PS = GetPlayerState<AAFPlayerState>();
+	if (!PS)
+	{
+		return;
+	}
+
+	const float AttackManaCost = 5.f;
+
+	// Mana 부족 체크는 서버에서 안전하게 처리됩니다.
+	if (!PS->ConsumeMana(AttackManaCost))
+	{
+		return;
+	}
+
+	// Mana 충분 → 공격 실행 (서버)
+	if (AttackMontage)
+	{
+		bIsAttacking = true;
+
+		MulticastPlayAttackMontage();
+		DealDamage();
+
+		UE_LOG(LogTemp, Warning, TEXT("Attack 성공: Mana %.1f 소모 (서버)"), AttackManaCost);
+	}
+}
+
+void AAFPlayerCharacter::MulticastPlayAttackMontage_Implementation()
+{
+	// 모든 클라이언트 (서버 포함)에서 모션을 재생
+	PlayAnimMontage(AttackMontage);
+}
+
+void AAFPlayerCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+}
+
 
 

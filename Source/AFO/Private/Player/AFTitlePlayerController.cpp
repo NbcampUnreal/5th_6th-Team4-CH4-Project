@@ -28,21 +28,6 @@ void AAFTitlePlayerController::BeginPlay()
 		}
 	}
 
-	if (IsValid(UIWidgetClass) == true)
-	{
-		UIWidgetInstance = CreateWidget<UUserWidget>(this, UIWidgetClass);
-		if (IsValid(UIWidgetInstance) == true)
-		{
-			UIWidgetInstance->AddToViewport();
-
-			FInputModeUIOnly Mode;
-			Mode.SetWidgetToFocus(UIWidgetInstance->GetCachedWidget());
-			SetInputMode(Mode);
-
-			bShowMouseCursor = true;
-		}
-	}
-
 	if (IsValid(TitleBGM) && TitleBGMComponent == nullptr)
 	{
 		TitleBGMComponent = UGameplayStatics::SpawnSound2D(this, TitleBGM, 1.0f, 1.0f, 0.0f);
@@ -64,22 +49,47 @@ void AAFTitlePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-//void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
-//{
-//	FName NextLevelName = FName(*InIPAddress);
-//	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
-//}
-
-void AAFTitlePlayerController::JoinServer()
+void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
 {
-	FName NextLevelName = FName(TEXT("AFOBattleZone"));
-	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
+	const FString Trimmed = InIPAddress.TrimStartAndEnd();
 
 	FInputModeGameOnly GameMode;
 	SetInputMode(GameMode);
-
 	bShowMouseCursor = false;
- }
+
+	if (IsValid(UIWidgetInstance))
+	{
+		UIWidgetInstance->RemoveFromParent();
+		UIWidgetInstance = nullptr;
+	}
+
+	if (TitleBGMComponent)
+	{
+		TitleBGMComponent->Stop();
+		TitleBGMComponent = nullptr;
+	}
+
+	if (Trimmed.IsEmpty())
+	{
+		const FString MapURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOBattleZone?listen");
+		UGameplayStatics::OpenLevel(GetWorld(), FName(*MapURL), true);
+		return;
+	}
+
+	const FString Address = FString::Printf(TEXT("%s:7777"), *Trimmed);
+	ClientTravel(Address, TRAVEL_Absolute);
+}
+
+//void AAFTitlePlayerController::JoinServer()
+//{
+//	FName NextLevelName = FName(TEXT("AFOBattleZone"));
+//	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
+//
+//	FInputModeGameOnly GameMode;
+//	SetInputMode(GameMode);
+//
+//	bShowMouseCursor = false;
+// }
 
 //void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
 //{

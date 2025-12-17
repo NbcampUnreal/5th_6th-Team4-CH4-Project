@@ -18,6 +18,8 @@ class AFO_API AAFPlayerCharacter : public ACharacter
 
 public:
 	AAFPlayerCharacter();
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 
 protected:
 	virtual void BeginPlay() override;
@@ -36,7 +38,7 @@ protected:
 	UFUNCTION()
 	virtual void StopSprint(const FInputActionValue& Value);
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
 	bool bIsAttacking = false;
 	UFUNCTION()
 	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
@@ -72,6 +74,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
 	float SprintSpeed; 
 	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Movement")
+	bool bCanSprint = true;
+	
 	float LookSensitive;                                // 마우스 민감도
 	
 public:
@@ -89,7 +94,17 @@ private:
 	UAnimMontage* AttackMontage;
 	
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
 
+
+
+	// 서버로 공격 요청을 보내는 함수 (클라이언트에서 호출)
+	UFUNCTION(Server, Reliable)
+	void ServerAttackRequest();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayAttackMontage();
+
+	virtual void OnRep_PlayerState() override;
 };

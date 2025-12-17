@@ -1,6 +1,8 @@
 #include "Animation/AFAnimInstance.h"
 #include "Character/AFPlayerCharacter.h"
 #include "Character/AFDarkKnight.h"
+#include "Character/AFMage.h"
+#include "Character/AFAurora.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -45,6 +47,14 @@ void UAFAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		{
 			bIsSprinting = DK->bIsSprinting;
 		}
+		else if (AAFMage* Mage = Cast<AAFMage>(BaseChar))
+		{
+			bIsSprinting = Mage->bIsSprinting;
+		}
+		else if (AAFAurora* Aurora = Cast<AAFAurora>(BaseChar))
+		{
+			bIsSprinting = Aurora->bIsSprinting;
+		}
 		else
 		{
 			// 다른 캐릭터일 경우 false
@@ -63,4 +73,5 @@ void UAFAnimInstance::AnimNotify_AttackHit()
 		}
 	}
 }
+
 

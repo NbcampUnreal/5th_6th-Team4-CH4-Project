@@ -10,6 +10,7 @@ class AFO_API AAFWereWolf : public AAFPlayerCharacter
 	GENERATED_BODY()
 	
 public:
+	AAFWereWolf();
 	virtual void BeginPlay() override;
 
 protected:
