@@ -224,42 +224,19 @@ void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInter
 
 void AAFPlayerCharacter::Attack()
 {
-	UE_LOG(LogTemp, Warning, TEXT("AttackInput()"));
+	if (bIsAttacking) return;
 
-	if (bIsAttacking)
-	{
-		return;
-	}
-
-	// PlayerState 가져오기
-	AAFPlayerState* PS = GetPlayerState<AAFPlayerState>();
-	if (!PS)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Attack 실패: PlayerState 없음"));
-		return;
-	}
-
-	const float AttackManaCost = 20.f;
-
-	// Mana 부족 체크
-	if (!PS->ConsumeMana(AttackManaCost))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Attack 실패: Mana 부족 (현재 마나: %.1f)"), PS->GetCurrentMana());
-		return;
-	}
-
-	// Mana 충분 → 공격 실행
-	if (AttackMontage)
-	{
-		bIsAttacking = true;
-		PlayAnimMontage(AttackMontage);
-
-		UE_LOG(LogTemp, Warning, TEXT("Attack 성공: Mana %.1f 소모"), AttackManaCost);
-	}
+	// 클라이언트에서 Server RPC 호출
+	ServerAttackRequest();
 }
 
 void AAFPlayerCharacter::DealDamage()
 {
+	if (!GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	
 	UE_LOG(LogTemp, Warning, TEXT("▶ DealDamage() 호출됨 — 실제 공격 판정 실행"));
 
 	// 공격 범위(전방 150cm) 트레이스
@@ -302,5 +279,49 @@ void AAFPlayerCharacter::DealDamage()
 		UE_LOG(LogTemp, Warning, TEXT("공격 실패: 타격 없음"));
 	}
 }
+
+
+void AAFPlayerCharacter::ServerAttackRequest_Implementation()
+{
+	// 서버에서만 실행됩니다.
+
+	AAFPlayerState* PS = GetPlayerState<AAFPlayerState>();
+	if (!PS)
+	{
+		return;
+	}
+
+	const float AttackManaCost = 5.f;
+
+	// Mana 부족 체크는 서버에서 안전하게 처리됩니다.
+	if (!PS->ConsumeMana(AttackManaCost))
+	{
+		return;
+	}
+
+	// Mana 충분 → 공격 실행 (서버)
+	if (AttackMontage)
+	{
+		bIsAttacking = true;
+
+		MulticastPlayAttackMontage();
+		DealDamage();
+
+		UE_LOG(LogTemp, Warning, TEXT("Attack 성공: Mana %.1f 소모 (서버)"), AttackManaCost);
+	}
+}
+
+void AAFPlayerCharacter::MulticastPlayAttackMontage_Implementation()
+{
+	// 모든 클라이언트 (서버 포함)에서 모션을 재생
+	PlayAnimMontage(AttackMontage);
+}
+
+void AAFPlayerCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+}
+
 
 

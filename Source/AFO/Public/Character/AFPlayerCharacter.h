@@ -97,4 +97,14 @@ protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
 
+
+
+	// 서버로 공격 요청을 보내는 함수 (클라이언트에서 호출)
+	UFUNCTION(Server, Reliable)
+	void ServerAttackRequest();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayAttackMontage();
+
+	virtual void OnRep_PlayerState() override;
 };

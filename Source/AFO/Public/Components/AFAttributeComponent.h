@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// AFAttributeComponent.h
 
 #pragma once
 
@@ -34,4 +34,16 @@ public:
 protected:
 	// 사망 처리 분리
 	void HandleDeath(AController* InstigatedBy);
+
+
+
+public:
+	// Health 변경 시 PlayerState에 동기화 하는 함수
+	void SyncHealthToPlayerState();
+
+
+private:
+	FTimerHandle HealthSyncTimerHandle;
+
+
 };

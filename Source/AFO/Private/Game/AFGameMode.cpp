@@ -2,6 +2,7 @@
 #include "Game/AFGameState.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
+#include "AFO/Public/Player/AFPlayerState.h"
 
 AAFGameMode::AAFGameMode()
 {
@@ -51,14 +52,31 @@ void AAFGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
 
-	int32 CurrentPlayerCount = PlayerTeams.Num();
+	if (!NewPlayer) return;
 
-	uint8 AssignedTeam = (CurrentPlayerCount % 2 == 0) ? 0 : 1;
+	uint8 AssignedTeam = (PlayerTeams.Num() % 2 == 0) ? 0 : 1; // 0:RED, 1:BLUE
 	PlayerTeams.Add(NewPlayer, AssignedTeam);
 
-	UE_LOG(LogTemp, Warning, TEXT("Player Joined: %s Team = %s"),
-		*NewPlayer->GetName(),
-		AssignedTeam == 0 ? TEXT("RED") : TEXT("BLUE"));
+	if (AAFPlayerState* PS = NewPlayer->GetPlayerState<AAFPlayerState>())
+	{
+		// 팀의 현재 인원수를 계산
+		int32 TeamCount = 0;
+		for (const auto& Elem : PlayerTeams)
+		{
+			if (Elem.Value == AssignedTeam)
+			{
+				TeamCount++;
+			}
+		}
+
+		// PlayerState에 팀 정보를 설정
+		PS->SetTeamInfo(AssignedTeam, (uint8)TeamCount);
+
+		UE_LOG(LogTemp, Warning, TEXT("Player Joined: %s Team = %s, Index = %d"),
+			*NewPlayer->GetName(),
+			AssignedTeam == 0 ? TEXT("RED") : TEXT("BLUE"),
+			TeamCount);
+	}
 }
 
 void AAFGameMode::Logout(AController* Exiting)
