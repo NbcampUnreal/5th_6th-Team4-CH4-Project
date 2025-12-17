@@ -40,6 +40,7 @@ protected:
 	UFUNCTION()
 	virtual void StopSprint(const FInputActionValue& Value);
 	
+	
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
 	bool bIsAttacking = false;
 	UFUNCTION()

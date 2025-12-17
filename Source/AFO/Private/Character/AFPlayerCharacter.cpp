@@ -194,6 +194,8 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 					&AAFPlayerCharacter::SkillQ
 				);
 			}
+			
+			EnhancedInput->BindAction(PlayerController->AttackAction, ETriggerEvent::Started, this, &ThisClass::InputAttackMelee);
 		}
 	}
 }
@@ -400,7 +402,14 @@ void AAFPlayerCharacter::HandleOnCheckInputAttack()
 
 		if (AttackMontage)
 		{
+			UE_LOG(LogTemp, Error, TEXT("JumpToSection: %s (Montage: %s)"),	*NextSectionName.ToString(),
+		*AttackMontage->GetName());
+				
 			AnimInstance->Montage_JumpToSection(NextSectionName, AttackMontage);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("JumpToSection Failed: AttackMontage is NULL"));
 		}
 
 		bIsAttackKeyPressed = false;
@@ -430,6 +439,7 @@ void AAFPlayerCharacter::InputAttackMelee(const FInputActionValue& InValue)
 
 	if (0 == CurrentComboCount)
 	{
+		UE_LOG(LogTemp, Error, TEXT("33"));
 		BeginAttack();
 	}
 	else
