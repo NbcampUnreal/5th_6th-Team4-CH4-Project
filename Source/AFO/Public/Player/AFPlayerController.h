@@ -38,6 +38,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	UInputAction* ESC;   	// InGameUI
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* SkillEAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* SkillQAction;
+	
 protected:
 	virtual void BeginPlay() override;
 
@@ -46,31 +52,31 @@ protected:
 
 
 
-	// ÀÎ°ÔÀÓ HUD À§Á¬ Å¬·¡½º
+	// ï¿½Î°ï¿½ï¿½ï¿½ HUD ï¿½ï¿½ï¿½ï¿½ Å¬ï¿½ï¿½ï¿½ï¿½
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AFO|Widgets")
 	TSubclassOf<UAFInGameWidget> InGameWidgetClass;
 
-	// ESC ¸Þ´º À§Á¬ Å¬·¡½º
+	// ESC ï¿½Þ´ï¿½ ï¿½ï¿½ï¿½ï¿½ Å¬ï¿½ï¿½ï¿½ï¿½
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AFO|Widgets")
 	TSubclassOf<UAFESCWidget> ESCWidgetClass;
 
-	// »ý¼ºµÈ ÀÎ°ÔÀÓ HUD ÀÎ½ºÅÏ½º
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Î°ï¿½ï¿½ï¿½ HUD ï¿½Î½ï¿½ï¿½Ï½ï¿½
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "AFO|Widgets")
 	TObjectPtr<UAFInGameWidget> InGameWidget;
 
-	// »ý¼ºµÈ ESC ¸Þ´º ÀÎ½ºÅÏ½º
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ESC ï¿½Þ´ï¿½ ï¿½Î½ï¿½ï¿½Ï½ï¿½
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "AFO|Widgets")
 	TObjectPtr<UAFESCWidget> ESCWidget;
 
 public:
-	// ESC ¸Þ´º È°¼ºÈ­ »óÅÂ
+	// ESC ï¿½Þ´ï¿½ È°ï¿½ï¿½È­ ï¿½ï¿½ï¿½ï¿½
 	UPROPERTY(VisibleInstanceOnly, Category = "AFO|Widgets")
 	bool bIsESCMenuOpen = false;
 
-	// ESC ¸Þ´º Åä±Û ÇÔ¼ö
+	// ESC ï¿½Þ´ï¿½ ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
 	void ToggleESCMenu();
 
 private:
-	// ÀÔ·Â ÄÄÆ÷³ÍÆ® ¼³Á¤
+	// ï¿½Ô·ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ï¿½
 	virtual void SetupInputComponent() override;
 };
