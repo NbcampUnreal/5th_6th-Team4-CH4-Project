@@ -74,4 +74,12 @@ void UAFAnimInstance::AnimNotify_AttackHit()
 	}
 }
 
+void UAFAnimInstance::AnimNotify_CheckHit()
+{
+	if (OnCheckHit.IsBound() == true)
+	{
+		OnCheckHit.Broadcast();
+	}
+}
+
 

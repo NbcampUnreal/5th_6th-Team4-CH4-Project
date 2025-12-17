@@ -4,6 +4,8 @@
 #include "Animation/AnimInstance.h"
 #include "AFAnimInstance.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCheckHit);
+
 class AAFPlayerCharacter;
 class UCharacterMovementComponent;
 
@@ -18,6 +20,12 @@ public:
 	
 	UFUNCTION()
 	void AnimNotify_AttackHit();
+	
+	FOnCheckHit OnCheckHit;
+	
+private:
+	UFUNCTION()
+	void AnimNotify_CheckHit();
 	
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
