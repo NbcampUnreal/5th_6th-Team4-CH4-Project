@@ -3,6 +3,9 @@
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "AFO/Public/Player/AFPlayerState.h"
+#include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerStart.h"
 
 AAFGameMode::AAFGameMode()
 {
@@ -59,7 +62,6 @@ void AAFGameMode::PostLogin(APlayerController* NewPlayer)
 
 	if (AAFPlayerState* PS = NewPlayer->GetPlayerState<AAFPlayerState>())
 	{
-		// 팀의 현재 인원수를 계산
 		int32 TeamCount = 0;
 		for (const auto& Elem : PlayerTeams)
 		{
@@ -69,8 +71,10 @@ void AAFGameMode::PostLogin(APlayerController* NewPlayer)
 			}
 		}
 
-		// PlayerState에 팀 정보를 설정
 		PS->SetTeamInfo(AssignedTeam, (uint8)TeamCount);
+		PS->SetDead(false);
+		PS->SetHealth(PS->GetMaxHealth(), PS->GetMaxHealth());
+		PS->SetMana(PS->GetMaxMana(), PS->GetMaxMana());
 
 		UE_LOG(LogTemp, Warning, TEXT("Player Joined: %s Team = %s, Index = %d"),
 			*NewPlayer->GetName(),
@@ -86,17 +90,33 @@ void AAFGameMode::Logout(AController* Exiting)
 	if (APlayerController* PC = Cast<APlayerController>(Exiting))
 	{
 		PlayerTeams.Remove(PC);
+
+		TWeakObjectPtr<AController> Weak = PC;
+		if (FTimerHandle* H = RespawnTimers.Find(Weak))
+		{
+			GetWorldTimerManager().ClearTimer(*H);
+			RespawnTimers.Remove(Weak);
+		}
+
 		UE_LOG(LogTemp, Warning, TEXT("Player Left Game: %s"), *PC->GetName());
 	}
 }
 
-void AAFGameMode::ReportKill(APlayerController* Killer, APlayerController* Victim)
+void AAFGameMode::ReportKill(AController* KillerController)
 {
 	AAFGameState* GS = GetAFGameState();
-	if (!GS || !Killer || !PlayerTeams.Contains(Killer))
+	if (!GS || !KillerController)
+	{
 		return;
+	}
 
-	uint8 KillerTeam = PlayerTeams[Killer];
+	AAFPlayerState* KillerPS = KillerController->GetPlayerState<AAFPlayerState>();
+	if (!KillerPS)
+	{
+		return;
+	}
+
+	const uint8 KillerTeam = KillerPS->GetTeamID(); // 0: Red, 1: Blue
 
 	if (KillerTeam == 0)
 	{
@@ -107,9 +127,105 @@ void AAFGameMode::ReportKill(APlayerController* Killer, APlayerController* Victi
 		GS->TeamBlueKillScore++;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("Kill → Red: %d / Blue: %d"),
+	UE_LOG(LogTemp, Warning, TEXT("Kill → Team:%s | Red:%d / Blue:%d"),
+		(KillerTeam == 0) ? TEXT("RED") : TEXT("BLUE"),
 		GS->TeamRedKillScore,
 		GS->TeamBlueKillScore);
+}
+
+AActor* AAFGameMode::ChoosePlayerStart_Implementation(AController* Player)
+{
+	AAFPlayerState* PS = Player ? Player->GetPlayerState<AAFPlayerState>() : nullptr;
+	if (!PS)
+	{
+		return Super::ChoosePlayerStart_Implementation(Player);
+	}
+
+	const FName WantedTag = (PS->GetTeamID() == 0) ? FName(TEXT("Red")) : FName(TEXT("Blue"));
+
+	TArray<AActor*> Starts;
+	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), Starts);
+
+	TArray<APlayerStart*> Candidates;
+	for (AActor* A : Starts)
+	{
+		APlayerStart* S = Cast<APlayerStart>(A);
+		if (S && S->PlayerStartTag == WantedTag)
+		{
+			Candidates.Add(S);
+		}
+	}
+
+	if (Candidates.Num() > 0)
+	{
+		return Candidates[FMath::RandRange(0, Candidates.Num() - 1)];
+	}
+
+	return Super::ChoosePlayerStart_Implementation(Player);
+}
+
+void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* KillerController)
+{
+	if (!HasAuthority() || !VictimController)
+	{
+		return;
+	}
+
+	AAFPlayerState* VictimPS = VictimController->GetPlayerState<AAFPlayerState>();
+	if (!VictimPS)
+	{
+		return;
+	}
+
+	if (VictimPS->IsDead())
+	{
+		return;
+	}
+
+	VictimPS->IncrementDeathCount();
+	VictimPS->SetDead(true);
+
+	if (KillerController && KillerController != VictimController)
+	{
+		if (AAFPlayerState* KillerPS = KillerController->GetPlayerState<AAFPlayerState>())
+		{
+			KillerPS->IncrementKillCount();
+		}
+
+		ReportKill(KillerController);
+	}
+
+	if (APawn* Pawn = VictimController->GetPawn())
+	{
+		Pawn->DetachFromControllerPendingDestroy();
+		Pawn->Destroy();
+	}
+
+	// 10초 후 리스폰
+	TWeakObjectPtr<AController> WeakVictim = VictimController;
+
+	FTimerHandle& Handle = RespawnTimers.FindOrAdd(WeakVictim);
+
+	GetWorldTimerManager().SetTimer(
+		Handle,
+		FTimerDelegate::CreateWeakLambda(this, [this, WeakVictim]()
+			{
+				if (!WeakVictim.IsValid()) return;
+
+				AController* VC = WeakVictim.Get();
+
+				if (AAFPlayerState* PS = VC->GetPlayerState<AAFPlayerState>())
+				{
+					PS->ResetForRespawn();
+				}
+
+				RestartPlayer(VC);
+
+				RespawnTimers.Remove(WeakVictim); // 정리
+			}),
+		RespawnDelay,
+		false
+	);
 }
 
 void AAFGameMode::EndRound()

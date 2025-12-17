@@ -50,6 +50,9 @@ protected:
 	UPROPERTY(Replicated)
 	uint8 TeamIndex; 	// 팀 내 인덱스
 
+	UPROPERTY(ReplicatedUsing = OnRep_IsDead)
+	bool bIsDead = false;
+
 //  ===============================
 //  OnRep 함수
 // ================================
@@ -61,6 +64,9 @@ protected:
 	void OnRep_KillCount();
 	UFUNCTION()
 	void OnRep_DeathCount();
+
+	UFUNCTION()
+	void OnRep_IsDead();
 
 //  ===============================
 //  Public API (Getter / Setter)
@@ -84,12 +90,17 @@ public:
 	uint8 GetTeamID() const { return TeamID; }
 	uint8 GetTeamIndex() const { return TeamIndex; }
 
+	bool IsDead() const { return bIsDead; }
+
 	//Setter (서버전용)
 	void SetHealth(float NewHealth, float NewMaxHealth);
 	void SetMana(float NewMana, float NewMaxMana);
 	void IncrementKillCount();
 	void IncrementDeathCount();
 	void SetTeamInfo(uint8 NewTeamID, uint8 NewTeamIndex);
+
+	void SetDead(bool bNewDead);
+	void ResetForRespawn();
 
 
 	// 추가 함수

@@ -5,6 +5,7 @@
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "Player/AFPlayerState.h"
+#include "Game/AFGameMode.h"
 
 UAFAttributeComponent::UAFAttributeComponent()
 {
@@ -51,40 +52,73 @@ void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 	}
 }
 
+//void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
+//{
+//	//중복 호출 방지
+//	if (bIsDead)
+//	{
+//		return;
+//	}
+//
+//	bIsDead = true;
+//
+//	if (GetWorld())
+//	{
+//		GetWorld()->GetTimerManager().ClearTimer(HealthSyncTimerHandle);
+//	}
+//
+//	AActor* OwnerActor = GetOwner();
+//	if (!OwnerActor) return;
+//
+//	UE_LOG(LogTemp, Warning, TEXT("[%s] is Dead"), *OwnerActor->GetName());
+//	
+//	// 피해자 Death 증가
+//	if (APawn* PawnOwner = Cast<APawn>(OwnerActor))
+//	{
+//		if (AAFPlayerState* VictimPS = PawnOwner->GetPlayerState<AAFPlayerState>())
+//		{
+//			VictimPS->IncrementDeathCount();
+//		}
+//	}
+//	
+//	// 공격자 Kill 증가
+//	if (InstigatedBy)
+//	{
+//		if (AAFPlayerState* AttackerPS = InstigatedBy->GetPlayerState<AAFPlayerState>())
+//		{
+//			AttackerPS->IncrementKillCount();
+//		}
+//	}
+//}
+
 void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
 {
-	//중복 호출 방지
-	if (bIsDead)
+	if (bIsDead) return;
+	bIsDead = true;
+
+	if (GetWorld())
 	{
-		return;
+		GetWorld()->GetTimerManager().ClearTimer(HealthSyncTimerHandle);
 	}
 
-	bIsDead = true;
+	SyncHealthToPlayerState();
 
 	AActor* OwnerActor = GetOwner();
 	if (!OwnerActor) return;
 
 	UE_LOG(LogTemp, Warning, TEXT("[%s] is Dead"), *OwnerActor->GetName());
-	
-	// 피해자 Death 증가
+
 	if (APawn* PawnOwner = Cast<APawn>(OwnerActor))
 	{
-		if (AAFPlayerState* VictimPS = PawnOwner->GetPlayerState<AAFPlayerState>())
+		AController* VictimController = PawnOwner->GetController();
+		if (!VictimController) return;
+
+		if (AAFGameMode* GM = GetWorld()->GetAuthGameMode<AAFGameMode>())
 		{
-			VictimPS->IncrementDeathCount();
-		}
-	}
-	
-	// 공격자 Kill 증가
-	if (InstigatedBy)
-	{
-		if (AAFPlayerState* AttackerPS = InstigatedBy->GetPlayerState<AAFPlayerState>())
-		{
-			AttackerPS->IncrementKillCount();
+			GM->HandlePlayerDeath(VictimController, InstigatedBy);
 		}
 	}
 }
-
 
 
 void UAFAttributeComponent::SyncHealthToPlayerState()
