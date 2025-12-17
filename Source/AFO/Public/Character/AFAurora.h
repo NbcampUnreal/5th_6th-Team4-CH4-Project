@@ -12,6 +12,12 @@ class AFO_API AAFAurora : public AAFPlayerCharacter
 public:
 	AAFAurora();
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+	bool bIsSprinting = false;
+
+	virtual void StartSprint(const FInputActionValue& Value) override;
+	virtual void StopSprint(const FInputActionValue& Value) override;
+
 	virtual void Tick(float DeltaTime) override;
 
 	// ===== Aim Offset =====

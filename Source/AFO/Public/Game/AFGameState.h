@@ -8,6 +8,7 @@
 
 // 델리게이트 선언: 시간이 변경될 때마다 UI에게 알림
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTimerChangedDelegate, int32, NewRemainingTime);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPlayerArrayChangedDelegate);
 
 // GamePhase 정의
 UENUM(BlueprintType)
@@ -30,6 +31,22 @@ class AFO_API AAFGameState : public AGameState
 	
 public:
 	AAFGameState();
+
+	UPROPERTY(BlueprintAssignable, Category = "Networking")
+	FPlayerArrayChangedDelegate OnPlayerArrayChanged;
+
+	// 1. ReplicatedUsing 변수 선언: PlayerState 복제 상태를 추적합니다.
+	UPROPERTY(ReplicatedUsing = OnRep_TeamPlayerArray, VisibleAnywhere, Category = "Networking")
+	TArray<class AAFPlayerState*> TeamPlayerStatesReplicated;
+
+	// 2. RepNotify 함수 선언: 클라이언트에 PlayerState 배열이 복제 완료될 때마다 호출됩니다.
+	UFUNCTION()
+	void OnRep_TeamPlayerArray();
+
+	// 3. AddPlayerState 오버라이드 선언 (옵션: AGameStateBase에 이미 선언되어 있을 수 있으나 명확히 선언)
+	virtual void AddPlayerState(APlayerState* PlayerState) override;
+
+
 
 	// UI가 구독할 델리게이트
 	UPROPERTY(BlueprintAssignable, Category = "AFO|Events")
