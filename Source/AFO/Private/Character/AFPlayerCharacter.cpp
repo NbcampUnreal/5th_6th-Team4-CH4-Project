@@ -125,6 +125,26 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 					&AAFPlayerCharacter::Attack
 				);
 			}
+			
+			if (PlayerController->SkillQAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->SkillQAction,
+					ETriggerEvent::Started,
+					this,
+					&AAFPlayerCharacter::SkillQ
+				);
+			}
+
+			if (PlayerController->SkillEAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->SkillEAction,
+					ETriggerEvent::Started,
+					this,
+					&AAFPlayerCharacter::SkillE
+				);
+			}
 		}
 	}
 }
@@ -217,15 +237,99 @@ void AAFPlayerCharacter::StopSprint(const FInputActionValue& value)
 	}
 }
 
+void AAFPlayerCharacter::SkillQ(const FInputActionValue& Value)
+{
+	if (!Value.Get<bool>()) return;
+
+	if (bIsAttacking) return;
+
+	UE_LOG(LogTemp, Warning, TEXT("SkillQ"));
+}
+
+void AAFPlayerCharacter::SkillE(const FInputActionValue& Value)
+{
+	if (!Value.Get<bool>()) return;
+	if (bIsAttacking) return;
+
+	UE_LOG(LogTemp, Warning, TEXT("SkillE"));
+}
+
 void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsAttacking = false; 
 }
 
+void AAFPlayerCharacter::HandleOnCheckHit()
+{
+	if (!bIsAttacking)
+	{
+		return;
+	}
+
+	DealDamage();
+}
+
+void AAFPlayerCharacter::HandleOnCheckInputAttack()
+{
+	if (!bIsAttacking || !AttackMontage)
+	{
+		return;
+	}
+
+	bCanNextCombo = true;
+
+	if (bNextComboQueued)
+	{
+		TryGotoNextCombo();
+	}
+}
+
+void AAFPlayerCharacter::TryGotoNextCombo()
+{
+	if (!bIsAttacking || !AttackMontage)
+	{
+		return;
+	}
+
+	// 아직 입력창이 안 열렸는데 눌렀다면 버퍼만
+	if (!bCanNextCombo)
+	{
+		bNextComboQueued = true;
+		return;
+	}
+
+	// 다음 콤보로 증가
+	if (ComboIndex >= MaxCombo)
+	{
+		return;
+	}
+
+	ComboIndex++;
+	bCanNextCombo = false;
+	bNextComboQueued = false;
+
+	const FName NextSection = FName(*FString::Printf(TEXT("Combo%d"), ComboIndex));
+	
+	if (UAnimInstance* AnimInst = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		AnimInst->Montage_JumpToSection(NextSection, AttackMontage);
+	}
+}
+
 void AAFPlayerCharacter::Attack()
 {
-	if (bIsAttacking) return;
+	if (bIsAttacking)
+	{
+		bNextComboQueued = true;
 
+		// 입력창이 이미 열려있다면 즉시 다음 섹션으로 넘김
+		if (bCanNextCombo)
+		{
+			TryGotoNextCombo();
+		}
+		return;
+	}
+	
 	// 클라이언트에서 Server RPC 호출
 	ServerAttackRequest();
 }
@@ -279,7 +383,6 @@ void AAFPlayerCharacter::DealDamage()
 		UE_LOG(LogTemp, Warning, TEXT("공격 실패: 타격 없음"));
 	}
 }
-
 
 void AAFPlayerCharacter::ServerAttackRequest_Implementation()
 {

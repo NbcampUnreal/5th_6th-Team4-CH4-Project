@@ -20,8 +20,13 @@ public:
 	AAFPlayerCharacter();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	UFUNCTION()
+	void HandleOnCheckHit();
+	UFUNCTION()
+	void HandleOnCheckInputAttack();
 
 protected:
+	void TryGotoNextCombo();
 	virtual void BeginPlay() override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -37,6 +42,11 @@ protected:
 	virtual void StartSprint(const FInputActionValue& Value);
 	UFUNCTION()
 	virtual void StopSprint(const FInputActionValue& Value);
+	// Q / E 스킬
+	UFUNCTION()
+	void SkillQ(const FInputActionValue& Value);
+	UFUNCTION()
+	void SkillE(const FInputActionValue& Value);
 	
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
 	bool bIsAttacking = false;
@@ -76,8 +86,19 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Movement")
 	bool bCanSprint = true;
-	
-	float LookSensitive;                                // 마우스 민감도
+
+	// 콤보 상태
+	UPROPERTY(VisibleAnywhere, Category="Combat")
+	int32 ComboIndex = 0;
+
+	UPROPERTY(EditDefaultsOnly, Category="Combat")
+	int32 MaxCombo = 3;
+
+	// 콤보 입력 창(AnimNotify로 열림)
+	bool bCanNextCombo = false;
+
+	// 입력을 미리 눌러두면 저장(버퍼)
+	bool bNextComboQueued = false;
 	
 public:
 	void Attack();
@@ -92,6 +113,12 @@ private:
 	
 	UPROPERTY(EditAnywhere, Category="Combat")
 	UAnimMontage* AttackMontage;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
+	UInputAction* SkillQAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", meta=(AllowPrivateAccess="true"))
+	UInputAction* SkillEAction;
 	
 protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category="Component")
