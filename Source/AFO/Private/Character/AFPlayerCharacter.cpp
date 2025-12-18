@@ -4,16 +4,19 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
+#include "Animation/AFAnimInstance.h"
 #include "Player/AFPlayerController.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/AFPlayerState.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Animation/AnimInstance.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
 	AttributeComp = CreateDefaultSubobject<UAFAttributeComponent>(TEXT("AttributeComponent"));
-	
+
 	NormalSpeed = 400.f;
 	SprintSpeedMultiplier = 1.5f;
 	SprintSpeed = NormalSpeed * SprintSpeedMultiplier;
@@ -39,8 +42,75 @@ void AAFPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AAFPlayerCharacter, bIsAttacking);
-	
+
 }
+
+void AAFPlayerCharacter::ServerRPC_SkillE_Implementation()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Server: SkillE Input received"));
+
+	if (bIsAttacking || bIsUsingSkill) return;
+
+	AAFPlayerState* PS = GetPlayerState<AAFPlayerState>();
+	if (!PS) return;
+
+	if (!PS->ConsumeMana(SkillEManaCost))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SkillE 실패: 서버에서 Mana 부족 확인"));
+		return;
+	}
+
+	if (SkillEMontage)
+	{
+		bIsUsingSkill = true;
+		// 서버에서 몽타주를 재생하면 설정에 따라 클라이언트들에게 복제
+		Multicast_PlaySkillEMontage();
+	}
+}
+
+void AAFPlayerCharacter::ServerRPC_SkillQ_Implementation()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Server: SkillQ Input received"));
+
+	if (bIsAttacking || bIsUsingSkill) return;
+
+	AAFPlayerState* PS = GetPlayerState<AAFPlayerState>();
+	if (!PS) return;
+
+	if (!PS->ConsumeMana(SkillQManaCost))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SkillE 실패: 서버에서 Mana 부족 확인"));
+		return;
+	}
+
+	if (SkillQMontage)
+	{
+		bIsUsingSkill = true;
+		// 서버에서 몽타주를 재생하면 설정에 따라 클라이언트들에게 복제
+		Multicast_PlaySkillQMontage();
+	}
+}
+
+void AAFPlayerCharacter::Multicast_PlaySkillEMontage_Implementation()
+{
+	// 서버와 모든 클라이언트에서 동시에 실행됨
+	if (SkillEMontage)
+	{
+		bIsUsingSkill = true;
+		PlayAnimMontage(SkillEMontage);
+	}
+}
+
+void AAFPlayerCharacter::Multicast_PlaySkillQMontage_Implementation()
+{
+	// 서버와 모든 클라이언트에서 동시에 실행됨
+	if (SkillQMontage)
+	{
+		bIsUsingSkill = true;
+		PlayAnimMontage(SkillQMontage);
+	}
+}
+
 
 void AAFPlayerCharacter::BeginPlay()
 {
@@ -50,14 +120,12 @@ void AAFPlayerCharacter::BeginPlay()
 	{
 		AnimInstance->OnMontageEnded.AddDynamic(this, &AAFPlayerCharacter::OnAttackMontageEnded);
 	}
-	
-	UAnimInstance* Anim = GetMesh()->GetAnimInstance();
 }
 
 void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-	
+
 	if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		if (AAFPlayerController* PlayerController = Cast<AAFPlayerController>(GetController()))
@@ -98,7 +166,7 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 					&AAFPlayerCharacter::StopJump
 				);
 			}
-			
+
 			if (PlayerController->SprintAction)
 			{
 				EnhancedInput->BindAction(
@@ -115,7 +183,7 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 					&AAFPlayerCharacter::StopSprint
 				);
 			}
-			
+
 			if (PlayerController->AttackAction)
 			{
 				EnhancedInput->BindAction(
@@ -125,6 +193,28 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 					&AAFPlayerCharacter::Attack
 				);
 			}
+
+			if (PlayerController->SkillEAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->SkillEAction,
+					ETriggerEvent::Started,
+					this,
+					&AAFPlayerCharacter::ServerRPC_SkillE
+				);
+			}
+
+			if (PlayerController->SkillQAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->SkillQAction,
+					ETriggerEvent::Started,
+					this,
+					&AAFPlayerCharacter::ServerRPC_SkillQ
+				);
+			}
+
+			EnhancedInput->BindAction(PlayerController->AttackAction, ETriggerEvent::Started, this, &ThisClass::InputAttackMelee);
 		}
 	}
 }
@@ -135,7 +225,7 @@ void AAFPlayerCharacter::Move(const FInputActionValue& value)
 
 	const FVector2D MoveInput = value.Get<FVector2D>();
 	if (MoveInput.IsNearlyZero()) return;
-	
+
 	// W / S 처리 (MoveInput.Y)
 	if (MoveInput.X > 0.f)
 	{
@@ -159,20 +249,20 @@ void AAFPlayerCharacter::Move(const FInputActionValue& value)
 		// A
 		AddMovementInput(RightDir, MoveInput.Y * LeftSpeed);
 	}
-	
+
 	// 컨트롤러(카메라)의 회전
 	const FRotator ControlRot = Controller->GetControlRotation();
 	const FRotator YawRot(0.f, ControlRot.Yaw, 0.f);
 
 	// 카메라 기준 Forward / Right 벡터 생성
 	ForwardDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
-	RightDir   = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
+	RightDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
 }
 
 void AAFPlayerCharacter::StartJump(const FInputActionValue& value)
 {
 	UE_LOG(LogTemp, Warning, TEXT(" Jump "));
-	
+
 	if (value.Get<bool>())
 	{
 		Jump();
@@ -198,7 +288,7 @@ void AAFPlayerCharacter::Look(const FInputActionValue& value)
 void AAFPlayerCharacter::StartSprint(const FInputActionValue& value)
 {
 	if (!bCanSprint) return;
-	
+
 	if (GetCharacterMovement())
 	{
 		GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
@@ -210,7 +300,7 @@ void AAFPlayerCharacter::StartSprint(const FInputActionValue& value)
 void AAFPlayerCharacter::StopSprint(const FInputActionValue& value)
 {
 	if (!bCanSprint) return;
-	
+
 	if (GetCharacterMovement())
 	{
 		GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
@@ -219,7 +309,103 @@ void AAFPlayerCharacter::StopSprint(const FInputActionValue& value)
 
 void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
-	bIsAttacking = false; 
+	bIsAttacking = false;
+
+	if (Montage == AttackMontage)
+	{
+		bIsAttacking = false;
+	}
+
+	if (Montage == SkillEMontage || Montage == SkillQMontage)
+	{
+		bIsUsingSkill = false;
+	}
+}
+
+void AAFPlayerCharacter::HandleOnCheckHit()
+{
+	UKismetSystemLibrary::PrintString(this, TEXT("HandleOnCheckHit()"));
+}
+
+void AAFPlayerCharacter::HandleOnCheckInputAttack()
+{
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	checkf(IsValid(AnimInstance), TEXT("Invalid AnimInstance"));
+
+	if (bIsAttackKeyPressed == true)
+	{
+		CurrentComboCount = FMath::Clamp(CurrentComboCount + 1, 1, MaxComboCount);
+
+		const FName NextSectionName = *FString::Printf(TEXT("%s%02d"), *AttackAnimMontageSectionPrefix, CurrentComboCount);
+
+		if (AttackMontage)
+		{
+			UE_LOG(LogTemp, Error, TEXT("JumpToSection: %s (Montage: %s)"), *NextSectionName.ToString(),
+				*AttackMontage->GetName());
+
+			AnimInstance->Montage_JumpToSection(NextSectionName, AttackMontage);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("JumpToSection Failed: AttackMontage is NULL"));
+		}
+
+		bIsAttackKeyPressed = false;
+	}
+}
+
+void AAFPlayerCharacter::EndAttack(UAnimMontage* InMontage, bool bInterruped)
+{
+	ensureMsgf(CurrentComboCount != 0, TEXT("CurrentComboCount == 0"));
+
+	CurrentComboCount = 0;
+	bIsAttackKeyPressed = false;
+	bIsNowAttacking = false;
+
+	if (OnMeleeAttackMontageEndedDelegate.IsBound() == true)
+	{
+		OnMeleeAttackMontageEndedDelegate.Unbind();
+	}
+}
+
+void AAFPlayerCharacter::InputAttackMelee(const FInputActionValue& InValue)
+{
+	if (GetCharacterMovement()->IsFalling() == true)
+	{
+		return;
+	}
+
+	if (0 == CurrentComboCount)
+	{
+		UE_LOG(LogTemp, Error, TEXT("33"));
+		BeginAttack();
+	}
+	else
+	{
+		ensure(FMath::IsWithinInclusive<int32>(CurrentComboCount, 1, MaxComboCount));
+		bIsAttackKeyPressed = true;
+	}
+}
+
+void AAFPlayerCharacter::BeginAttack()
+{
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	checkf(IsValid(AnimInstance), TEXT("Invalid AnimInstance"));
+
+	bIsNowAttacking = true;
+
+	if (IsValid(AttackMontage) && !AnimInstance->Montage_IsPlaying(AttackMontage))
+	{
+		AnimInstance->Montage_Play(AttackMontage);
+	}
+
+	CurrentComboCount = 1;
+
+	if (!OnMeleeAttackMontageEndedDelegate.IsBound())
+	{
+		OnMeleeAttackMontageEndedDelegate.BindUObject(this, &ThisClass::EndAttack);
+		AnimInstance->Montage_SetEndDelegate(OnMeleeAttackMontageEndedDelegate, AttackMontage);
+	}
 }
 
 void AAFPlayerCharacter::Attack()
@@ -236,7 +422,7 @@ void AAFPlayerCharacter::DealDamage()
 	{
 		return;
 	}
-	
+
 	UE_LOG(LogTemp, Warning, TEXT("▶ DealDamage() 호출됨 — 실제 공격 판정 실행"));
 
 	// 공격 범위(전방 150cm) 트레이스
@@ -281,6 +467,8 @@ void AAFPlayerCharacter::DealDamage()
 }
 
 
+
+
 void AAFPlayerCharacter::ServerAttackRequest_Implementation()
 {
 	// 서버에서만 실행됩니다.
@@ -322,6 +510,3 @@ void AAFPlayerCharacter::OnRep_PlayerState()
 	Super::OnRep_PlayerState();
 
 }
-
-
-
