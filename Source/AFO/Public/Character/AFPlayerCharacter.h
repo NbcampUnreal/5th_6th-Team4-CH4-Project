@@ -88,7 +88,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Skill")
 	UAnimMontage* SkillQMontage;
-
+	
 	// Mana Cost
 	UPROPERTY(EditAnywhere, Category = "Skill")
 	float SkillEManaCost = 30.f;
@@ -98,6 +98,15 @@ protected:
 
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
 	bool bIsUsingSkill = false;
+	
+	// Attack
+	
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	UAnimMontage* HeavyAttackMontage;
+	
+	void InputHeavyAttack(const FInputActionValue& InValue);
+	
+	bool bIsHeavyAttacking = false;
 
 public:
 	void Attack();
@@ -115,6 +124,8 @@ public:
 
 	UFUNCTION()
 	virtual void EndAttack(UAnimMontage* InMontage, bool bInterruped);
+	
+	void HandleOnCheckInputAttack_FromNotify(UAnimInstance* Anim);
 
 private:
 	UPROPERTY(VisibleAnywhere)
@@ -130,6 +141,13 @@ private:
 protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
+	
+	// 스프린트 입력 상태(누르고 있는지)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
+	bool bSprintHeld = false;
+
+	// 실제 이동 중인지(입력/속도 기반)
+	bool IsActuallyMoving() const;
 
 	FString AttackAnimMontageSectionPrefix = FString(TEXT("Attack"));
 
@@ -148,6 +166,12 @@ protected:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlaySkillQMontage();
+	
+	// 이동 잠금
+	bool bMovementLocked = false;
+
+	void LockMovement();
+	void UnlockMovement();
 
 
 

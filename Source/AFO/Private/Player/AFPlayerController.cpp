@@ -12,6 +12,7 @@ JumpAction(nullptr),
 LookAction(nullptr),
 SprintAction(nullptr),
 AttackAction(nullptr),
+HeavyAttackAction(nullptr),
 SkillEAction(nullptr),
 SkillQAction(nullptr),
 ESC(nullptr)
