@@ -97,6 +97,8 @@ void AAFPlayerCharacter::Multicast_PlaySkillEMontage_Implementation()
 	if (SkillEMontage)
 	{
 		bIsUsingSkill = true;
+		
+		LockMovement();
 		PlayAnimMontage(SkillEMontage);
 	}
 }
@@ -107,10 +109,11 @@ void AAFPlayerCharacter::Multicast_PlaySkillQMontage_Implementation()
 	if (SkillQMontage)
 	{
 		bIsUsingSkill = true;
+		
+		LockMovement();  
 		PlayAnimMontage(SkillQMontage);
 	}
 }
-
 
 void AAFPlayerCharacter::BeginPlay()
 {
@@ -184,16 +187,6 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 				);
 			}
 
-			if (PlayerController->AttackAction)
-			{
-				EnhancedInput->BindAction(
-					PlayerController->AttackAction,
-					ETriggerEvent::Started,
-					this,
-					&AAFPlayerCharacter::Attack
-				);
-			}
-
 			if (PlayerController->SkillEAction)
 			{
 				EnhancedInput->BindAction(
@@ -213,14 +206,35 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 					&AAFPlayerCharacter::ServerRPC_SkillQ
 				);
 			}
-
-			EnhancedInput->BindAction(PlayerController->AttackAction, ETriggerEvent::Started, this, &ThisClass::InputAttackMelee);
+			
+			if (PlayerController->AttackAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->AttackAction,
+					ETriggerEvent::Started,
+					this,
+					&ThisClass::InputAttackMelee
+				);
+			}
+			
+			if (PlayerController->HeavyAttackAction)
+			{
+				EnhancedInput->BindAction(
+					PlayerController->HeavyAttackAction,
+					ETriggerEvent::Started,
+					this,
+					&ThisClass::InputHeavyAttack
+				);
+			}
 		}
 	}
 }
 
 void AAFPlayerCharacter::Move(const FInputActionValue& value)
 {
+	if (bMovementLocked) return;
+	if (bIsUsingSkill) return;
+	if (bIsHeavyAttacking) return;
 	if (!Controller) return;
 
 	const FVector2D MoveInput = value.Get<FVector2D>();
@@ -293,6 +307,7 @@ void AAFPlayerCharacter::StartSprint(const FInputActionValue& value)
 	{
 		GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
 	}
+	
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 }
@@ -309,16 +324,35 @@ void AAFPlayerCharacter::StopSprint(const FInputActionValue& value)
 
 void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
-	bIsAttacking = false;
-
-	if (Montage == AttackMontage)
+	if (Montage == HeavyAttackMontage)
 	{
 		bIsAttacking = false;
+		bIsHeavyAttacking = false;
+
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+		{
+			MoveComp->SetMovementMode(MOVE_Walking);
+		}
+
+		if (!bIsUsingSkill)
+		{
+			UnlockMovement();
+		}
 	}
 
 	if (Montage == SkillEMontage || Montage == SkillQMontage)
 	{
 		bIsUsingSkill = false;
+
+		if (!bIsHeavyAttacking)
+		{
+			UnlockMovement();
+		}
+	}
+
+	if (Montage == AttackMontage)
+	{
+		bIsAttacking = false;
 	}
 }
 
@@ -329,33 +363,36 @@ void AAFPlayerCharacter::HandleOnCheckHit()
 
 void AAFPlayerCharacter::HandleOnCheckInputAttack()
 {
-	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-	checkf(IsValid(AnimInstance), TEXT("Invalid AnimInstance"));
+	UE_LOG(LogTemp, Warning, TEXT("Handle CALLED. pressed=%d combo=%d"),
+		bIsAttackKeyPressed, CurrentComboCount);
 
-	if (bIsAttackKeyPressed == true)
+	UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	const bool bPlaying = Anim ? Anim->Montage_IsPlaying(AttackMontage) : false;
+	UE_LOG(LogTemp, Warning, TEXT("IsPlaying AttackMontage=%d"), bPlaying);
+
+	if (!bPlaying)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Skip Jump: AttackMontage not playing now"));
+		return;
+	}
+
+	if (bIsAttackKeyPressed)
 	{
 		CurrentComboCount = FMath::Clamp(CurrentComboCount + 1, 1, MaxComboCount);
 
-		const FName NextSectionName = *FString::Printf(TEXT("%s%02d"), *AttackAnimMontageSectionPrefix, CurrentComboCount);
+		FName NextSectionName = *FString::Printf(TEXT("%s%02d"),
+			*AttackAnimMontageSectionPrefix, CurrentComboCount);
 
-		if (AttackMontage)
-		{
-			UE_LOG(LogTemp, Error, TEXT("JumpToSection: %s (Montage: %s)"), *NextSectionName.ToString(),
-				*AttackMontage->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("JumpToSection => %s"), *NextSectionName.ToString());
 
-			AnimInstance->Montage_JumpToSection(NextSectionName, AttackMontage);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("JumpToSection Failed: AttackMontage is NULL"));
-		}
-
+		Anim->Montage_JumpToSection(NextSectionName, AttackMontage);
 		bIsAttackKeyPressed = false;
 	}
 }
 
 void AAFPlayerCharacter::EndAttack(UAnimMontage* InMontage, bool bInterruped)
 {
+	UE_LOG(LogTemp, Warning, TEXT("EndAttack CALLED. Montage=%s Interrupted=%d Combo=%d"),*GetNameSafe(InMontage), bInterruped, CurrentComboCount);
 	ensureMsgf(CurrentComboCount != 0, TEXT("CurrentComboCount == 0"));
 
 	CurrentComboCount = 0;
@@ -368,8 +405,35 @@ void AAFPlayerCharacter::EndAttack(UAnimMontage* InMontage, bool bInterruped)
 	}
 }
 
+void AAFPlayerCharacter::HandleOnCheckInputAttack_FromNotify(UAnimInstance* Anim)
+{
+	UE_LOG(LogTemp, Warning, TEXT("HandleFromNotify CALLED pressed=%d combo=%d"), bIsAttackKeyPressed, CurrentComboCount);
+
+	if (!Anim || !AttackMontage) return;
+
+	const bool bPlaying = Anim->Montage_IsPlaying(AttackMontage);
+	UE_LOG(LogTemp, Warning, TEXT("IsPlaying(OnNotifyAnim)=%d CurrentActive=%s"),
+		bPlaying,
+		*GetNameSafe(Anim->GetCurrentActiveMontage()));
+
+	if (!bPlaying) return;
+
+	if (bIsAttackKeyPressed)
+	{
+		CurrentComboCount = FMath::Clamp(CurrentComboCount + 1, 1, MaxComboCount);
+		FName NextSectionName = *FString::Printf(TEXT("%s%02d"), *AttackAnimMontageSectionPrefix, CurrentComboCount);
+
+		UE_LOG(LogTemp, Warning, TEXT("JumpToSection => %s"), *NextSectionName.ToString());
+
+		Anim->Montage_JumpToSection(NextSectionName, AttackMontage);
+		bIsAttackKeyPressed = false;
+	}
+}
+
 void AAFPlayerCharacter::InputAttackMelee(const FInputActionValue& InValue)
 {
+	UE_LOG(LogTemp, Warning, TEXT("InputAttackMelee CALLED. CurrentComboCount=%d"), CurrentComboCount);
+	
 	if (GetCharacterMovement()->IsFalling() == true)
 	{
 		return;
@@ -377,34 +441,95 @@ void AAFPlayerCharacter::InputAttackMelee(const FInputActionValue& InValue)
 
 	if (0 == CurrentComboCount)
 	{
-		UE_LOG(LogTemp, Error, TEXT("33"));
+		UE_LOG(LogTemp, Warning, TEXT("BeginAttack()"));
 		BeginAttack();
 	}
 	else
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Buffer ON (bIsAttackKeyPressed=true)"));
 		ensure(FMath::IsWithinInclusive<int32>(CurrentComboCount, 1, MaxComboCount));
 		bIsAttackKeyPressed = true;
 	}
 }
 
+bool AAFPlayerCharacter::IsActuallyMoving() const
+{
+	if (!GetCharacterMovement()) return false;
+
+	// 속도 기반(서버/클라 공통으로 안정적)
+	const float Speed2D = GetVelocity().Size2D();
+	const bool bHasSpeed = Speed2D > 3.f; // 약간의 오차 제거용
+
+	return bHasSpeed;
+}
+
 void AAFPlayerCharacter::BeginAttack()
 {
-	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-	checkf(IsValid(AnimInstance), TEXT("Invalid AnimInstance"));
-
 	bIsNowAttacking = true;
 
-	if (IsValid(AttackMontage) && !AnimInstance->Montage_IsPlaying(AttackMontage))
+	const float PlayedLen = PlayAnimMontage(AttackMontage, 1.f, FName("Attack01"));
+	UE_LOG(LogTemp, Warning, TEXT("BeginAttack PlayAnimMontage Len=%.3f Montage=%s"),
+		PlayedLen, *GetNameSafe(AttackMontage));
+
+	if (PlayedLen <= 0.f)
 	{
-		AnimInstance->Montage_Play(AttackMontage);
+		UE_LOG(LogTemp, Error, TEXT("BeginAttack FAILED: montage not played (slot/animgraph 확인)"));
+		bIsNowAttacking = false;
+		return;
 	}
 
 	CurrentComboCount = 1;
 
-	if (!OnMeleeAttackMontageEndedDelegate.IsBound())
+	UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (Anim && !OnMeleeAttackMontageEndedDelegate.IsBound())
 	{
 		OnMeleeAttackMontageEndedDelegate.BindUObject(this, &ThisClass::EndAttack);
-		AnimInstance->Montage_SetEndDelegate(OnMeleeAttackMontageEndedDelegate, AttackMontage);
+		Anim->Montage_SetEndDelegate(OnMeleeAttackMontageEndedDelegate, AttackMontage);
+	}
+}
+
+void AAFPlayerCharacter::InputHeavyAttack(const FInputActionValue& InValue)
+{
+	if (GetCharacterMovement()->IsFalling()) return;
+	if (bIsUsingSkill) return;
+	if (!HeavyAttackMontage) return;
+
+	// 콤보(좌클릭) 중이면 강공격 막기 (원하면 삭제 가능)
+	if (CurrentComboCount > 0 || bIsNowAttacking) return;
+
+	UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!Anim) return;
+
+	// 1) 연타해도 재시작(칠랑말랑) 안 되게 막기
+	if (bIsHeavyAttacking) return;
+	if (Anim->Montage_IsPlaying(HeavyAttackMontage)) return;
+
+	bIsAttacking = true;
+	bIsHeavyAttacking = true;
+
+	// 2) 움직이면서 사용 방지: 입력 무시 + 즉시 멈춤 + 이동모드 None
+	LockMovement(); // 네가 만든 함수(StopMovementImmediately + IgnoreMoveInput)
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->DisableMovement();
+	}
+
+	const float Len = PlayAnimMontage(HeavyAttackMontage);
+	UE_LOG(LogTemp, Warning, TEXT("HeavyAttack PlayAnimMontage Len=%.3f Montage=%s"),
+		Len, *GetNameSafe(HeavyAttackMontage));
+
+	if (Len <= 0.f)
+	{
+		// 재생 실패 시 원복
+		bIsAttacking = false;
+		bIsHeavyAttacking = false;
+
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+		{
+			MoveComp->SetMovementMode(MOVE_Walking);
+		}
+		UnlockMovement();
 	}
 }
 
@@ -466,9 +591,6 @@ void AAFPlayerCharacter::DealDamage()
 	}
 }
 
-
-
-
 void AAFPlayerCharacter::ServerAttackRequest_Implementation()
 {
 	// 서버에서만 실행됩니다.
@@ -503,6 +625,34 @@ void AAFPlayerCharacter::MulticastPlayAttackMontage_Implementation()
 {
 	// 모든 클라이언트 (서버 포함)에서 모션을 재생
 	PlayAnimMontage(AttackMontage);
+}
+
+void AAFPlayerCharacter::LockMovement()
+{
+	if (bMovementLocked) return;
+	bMovementLocked = true;
+
+	// 이미 움직이고 있던 속도/가속 끊기
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+	}
+
+	// 입력으로 인한 이동만 막기(몽타주 루트모션은 필요하면 유지 가능)
+	if (AController* C = GetController())
+	{
+		C->SetIgnoreMoveInput(true);
+	}
+}
+
+void AAFPlayerCharacter::UnlockMovement()
+{
+	bMovementLocked = false;
+
+	if (AController* C = GetController())
+	{
+		C->SetIgnoreMoveInput(false);
+	}
 }
 
 void AAFPlayerCharacter::OnRep_PlayerState()

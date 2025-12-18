@@ -61,6 +61,8 @@ void UAFAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			bIsSprinting = false;
 		}
 	}
+	
+	bIsSprinting = bIsSprinting && (GroundSpeed > 3.f);
 }
 
 void UAFAnimInstance::AnimNotify_AttackHit()
