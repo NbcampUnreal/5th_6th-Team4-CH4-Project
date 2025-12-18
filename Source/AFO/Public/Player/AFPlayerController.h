@@ -94,4 +94,14 @@ public:
 	// 서버가 클라이언트에게 호출하는 함수
 	UFUNCTION(Client, Reliable)
 	void Client_ShowRespawnWidget(float Duration);
+
+protected:
+	// 생성된 위젯을 저장해둘 변수
+	UPROPERTY()
+	class UAFRespawnWidget* CurrentRespawnWidget;
+
+public:
+	// 위젯 제거 함수 추가
+	UFUNCTION(Client, Reliable)
+	void Client_ClearRespawnWidget();
 };
