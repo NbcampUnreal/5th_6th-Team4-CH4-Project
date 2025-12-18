@@ -6,6 +6,7 @@
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
+#include "Player/AFPlayerController.h"
 
 AAFGameMode::AAFGameMode()
 {
@@ -199,6 +200,12 @@ void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* 
 	{
 		Pawn->DetachFromControllerPendingDestroy();
 		Pawn->Destroy();
+	}
+
+	// 리스폰 위젯 띄우기
+	if (AAFPlayerController* PC = Cast<AAFPlayerController>(VictimController))
+	{
+		PC->Client_ShowRespawnWidget(RespawnDelay);
 	}
 
 	// 10초 후 리스폰

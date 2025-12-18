@@ -2,6 +2,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "UI/AFESCWidget.h"
 #include "UI/AFInGameWidget.h"
+#include "UI/AFRespawnWidget.h"
 #include "EnhancedInputComponent.h"
 
 
@@ -123,4 +124,21 @@ void AAFPlayerController::ToggleESCMenu()
 		bShowMouseCursor = false;
 	}
 
+}
+
+
+
+void AAFPlayerController::Client_ShowRespawnWidget_Implementation(float Duration)
+{
+	if (RespawnWidgetClass)
+	{
+		// 1. 위젯 생성
+		UAFRespawnWidget* RespawnUI = CreateWidget<UAFRespawnWidget>(this, RespawnWidgetClass);
+		if (RespawnUI)
+		{
+			// 2. 시간 설정 및 뷰포트 추가
+			RespawnUI->InitRespawnTimer(Duration);
+			RespawnUI->AddToViewport();
+		}
+	}
 }

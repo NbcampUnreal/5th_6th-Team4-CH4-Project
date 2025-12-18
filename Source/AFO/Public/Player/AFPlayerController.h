@@ -82,4 +82,16 @@ public:
 private:
 	// �Է� ������Ʈ ����
 	virtual void SetupInputComponent() override;
+
+
+
+protected:
+	// 리스폰 위젯 클래스를 블루프린트에서 할당할 수 있게 선언
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UAFRespawnWidget> RespawnWidgetClass;
+
+public:
+	// 서버가 클라이언트에게 호출하는 함수
+	UFUNCTION(Client, Reliable)
+	void Client_ShowRespawnWidget(float Duration);
 };

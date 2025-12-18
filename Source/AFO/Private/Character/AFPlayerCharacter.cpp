@@ -213,7 +213,7 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 					PlayerController->AttackAction,
 					ETriggerEvent::Started,
 					this,
-					&ThisClass::InputAttackMelee
+					&ThisClass::Attack
 				);
 			}
 			

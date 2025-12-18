@@ -301,6 +301,11 @@ void UAFInGameWidget::UpdatePlayerDeathCount(int32 NewDeathCount, AAFPlayerState
 void UAFInGameWidget::UpdateTeamKillDeathScore(int32 NewValue, AAFPlayerState* TargetPS)
 {
 
+	RedTotalKills = 0;
+	RedTotalDeaths = 0;
+	BlueTotalKills = 0;
+	BlueTotalDeaths = 0;
+
 	// Map을 순회하며 팀별 총합을 계산
 	for (const auto& Elem : TeamPlayerStates)
 	{
