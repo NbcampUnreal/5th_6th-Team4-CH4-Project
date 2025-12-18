@@ -81,7 +81,7 @@ void AAFGameState::UpdateTimer()
 		{
 			if (AAFGameMode* GM = GetWorld()->GetAuthGameMode<AAFGameMode>())
 			{
-				GM->EndRound();
+				// GM->EndRound();
 			}
 		}
 	}

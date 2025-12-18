@@ -65,7 +65,6 @@ void UAFInGameWidget::HandlePlayerArrayChanged()
 	InitializeTeamUI(GS->PlayerArray);
 }
 
-
 void UAFInGameWidget::CheckAndInitializeUI()
 {
 	if (bTeamUIInitialized)
@@ -125,7 +124,7 @@ void UAFInGameWidget::InitializeTeamUI(TArray<APlayerState*> AllPlayerStates)
 	APlayerController* LocalPC = GetOwningPlayer();
 	FString InstanceName = LocalPC ? LocalPC->GetName() : TEXT("UNKNOWN_CLIENT");
 
-	UE_LOG(LogTemp, Warning, TEXT("[%s] Attempting to bind %d PlayerStates."), *InstanceName, AllPlayerStates.Num());
+	// UE_LOG(LogTemp, Warning, TEXT("[%s] Attempting to bind %d PlayerStates."), *InstanceName, AllPlayerStates.Num());
 
 	for (APlayerState* PS : AllPlayerStates)
 	{
@@ -203,20 +202,6 @@ void UAFInGameWidget::InitializeTeamUI(TArray<APlayerState*> AllPlayerStates)
 	}
 }
 
-
-
-
-// ====================
-// 2. 델리게이트 핸들러
-// ====================
-
-
-
-
-
-
-
-
 // 팀 스코어보드 핸들러
 void UAFInGameWidget::UpdatePlayerHealthBar(float CurrentHealth, float MaxHealth, AAFPlayerState* TargetPS)
 {
@@ -253,12 +238,6 @@ void UAFInGameWidget::UpdatePlayerHealthBar(float CurrentHealth, float MaxHealth
 		UE_LOG(LogTemp, Warning, TEXT("SCOREBOARD UPDATE FAILED: Team %d Index %d. TargetHPBar is NULL."), TargetPS->GetTeamID(), TargetPS->GetTeamIndex());
 	}
 }
-
-
-
-
-
-
 
 void UAFInGameWidget::UpdatePlayerManaBar(float CurrentMana, float MaxMana, AAFPlayerState* TargetPS)
 {
@@ -321,10 +300,6 @@ void UAFInGameWidget::UpdatePlayerDeathCount(int32 NewDeathCount, AAFPlayerState
 // 팀 총합 스코어 갱신 핸들러
 void UAFInGameWidget::UpdateTeamKillDeathScore(int32 NewValue, AAFPlayerState* TargetPS)
 {
-	int32 RedTotalKills = 0;
-	int32 RedTotalDeaths = 0;
-	int32 BlueTotalKills = 0;
-	int32 BlueTotalDeaths = 0;
 
 	// Map을 순회하며 팀별 총합을 계산
 	for (const auto& Elem : TeamPlayerStates)
@@ -420,6 +395,39 @@ void UAFInGameWidget::UpdateGameTimerText(int32 NewTime)
 	{
 		GameTimer->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
 	}
+
+	if (NewTime <= 0)
+	{
+		ShowGameResult();
+	}
+}
+
+
+void UAFInGameWidget::ShowGameResult()
+{
+	APlayerController* PC = GetOwningPlayer();
+	AAFPlayerState* MyPS = PC ? PC->GetPlayerState<AAFPlayerState>() : nullptr;
+	if (!MyPS) return;
+
+
+	// 내 팀 확인 및 승패 판정
+	uint8 MyTeam = MyPS->GetTeamID();
+	bool bIWin = false;
+
+	if (RedTotalKills > BlueTotalKills) bIWin = (MyTeam == 0);
+	else if (BlueTotalKills > RedTotalKills) bIWin = (MyTeam == 1);
+	// Draw 처리는 보류하셨으니 생략
+
+	// 3. 위젯 생성 및 출력
+	TSubclassOf<UUserWidget> ResultClass = bIWin ? VictoryWidgetClass : LoseWidgetClass;
+	if (ResultClass)
+	{
+		UUserWidget* ResultWidget = CreateWidget<UUserWidget>(GetWorld(), ResultClass);
+		if (ResultWidget)
+		{
+			ResultWidget->AddToViewport();
+		}
+	}
 }
 
 
@@ -475,7 +483,7 @@ void UAFInGameWidget::CheckAndBindPlayerState()
 	else
 	{
 		// 아직 못 찾았으면 다음 주기까지 기다립니다.
-		UE_LOG(LogTemp, Log, TEXT("Waiting for PlayerState..."));
+		// UE_LOG(LogTemp, Log, TEXT("Waiting for PlayerState..."));
 	}
 }
 
