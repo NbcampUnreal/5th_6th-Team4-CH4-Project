@@ -180,36 +180,36 @@ void AAFGameMode::ReportKill(AController* KillerController)
 
 // 임시로 기존 함수 비활성화
 
-//AActor* AAFGameMode::ChoosePlayerStart_Implementation(AController* Player)
-//{
-//	AAFPlayerState* PS = Player ? Player->GetPlayerState<AAFPlayerState>() : nullptr;
-//	if (!PS)
-//	{
-//		return Super::ChoosePlayerStart_Implementation(Player);
-//	}
-//
-//	const FName WantedTag = (PS->GetTeamID() == 0) ? FName(TEXT("Red")) : FName(TEXT("Blue"));
-//
-//	TArray<AActor*> Starts;
-//	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), Starts);
-//
-//	TArray<APlayerStart*> Candidates;
-//	for (AActor* A : Starts)
-//	{
-//		APlayerStart* S = Cast<APlayerStart>(A);
-//		if (S && S->PlayerStartTag == WantedTag)
-//		{
-//			Candidates.Add(S);
-//		}
-//	}
-//
-//	if (Candidates.Num() > 0)
-//	{
-//		return Candidates[FMath::RandRange(0, Candidates.Num() - 1)];
-//	}
-//
-//	return Super::ChoosePlayerStart_Implementation(Player);
-//}
+AActor* AAFGameMode::ChoosePlayerStart_Implementation(AController* Player)
+{
+	AAFPlayerState* PS = Player ? Player->GetPlayerState<AAFPlayerState>() : nullptr;
+	if (!PS)
+	{
+		return Super::ChoosePlayerStart_Implementation(Player);
+	}
+
+	const FName WantedTag = (PS->GetTeamID() == 0) ? FName(TEXT("Red")) : FName(TEXT("Blue"));
+
+	TArray<AActor*> Starts;
+	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), Starts);
+
+	TArray<APlayerStart*> Candidates;
+	for (AActor* A : Starts)
+	{
+		APlayerStart* S = Cast<APlayerStart>(A);
+		if (S && S->PlayerStartTag == WantedTag)
+		{
+			Candidates.Add(S);
+		}
+	}
+
+	if (Candidates.Num() > 0)
+	{
+		return Candidates[FMath::RandRange(0, Candidates.Num() - 1)];
+	}
+
+	return Super::ChoosePlayerStart_Implementation(Player);
+}
 
 void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* KillerController)
 {
@@ -318,66 +318,66 @@ void AAFGameMode::EndRound()
 
 
 
-// 캐릭터 선택 화면 구현 전 임시 캐릭터 설정 함수
-UClass* AAFGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
-{
-	// 접속한 순서에 따라 클래스 배정
-	PlayerCount++;
-
-	UE_LOG(LogTemp, Warning, TEXT("Player Joined! Current Count: %d"), PlayerCount);
-
-	if (PlayerCount == 1 && FirstCharacterClass)
-	{
-		return FirstCharacterClass;
-	}
-	else if (PlayerCount == 2 && SecondCharacterClass)
-	{
-		return SecondCharacterClass;
-	}
-	else if (PlayerCount == 3 && ThirdCharacterClass)
-	{
-		return ThirdCharacterClass;
-	}
-	else if (PlayerCount == 4 && FourthCharacterClass)
-	{
-		return FourthCharacterClass;
-	}
-
-	// 3번째 이후거나 설정이 안 되어있으면 기본 Pawn 클래스 사용
-	return Super::GetDefaultPawnClassForController_Implementation(InController);
-}
-
-
-AActor* AAFGameMode::ChoosePlayerStart_Implementation(AController* Player)
-{
-	// 1. 서버 권한 및 유효성 검사
-	if (!Player) return nullptr;
-
-	// 2. AFO 플레이어 상태 정보 가져오기
-	AAFPlayerState* PS = Player->GetPlayerState<AAFPlayerState>();
-	if (PS)
-	{
-		// 현재 로그에 찍히고 있는 정보를 기반으로 가져옴
-		int32 TargetTeam = PS->GetTeamID();     // 0 또는 1
-		int32 TargetIndex = PS->GetTeamIndex(); // 0 또는 1
-
-		// 태그 생성: "0_0", "0_1" 등
-		FString TagStr = FString::Printf(TEXT("%d_%d"), TargetTeam, TargetIndex);
-		FName TargetTag = FName(*TagStr);
-
-		UE_LOG(LogTemp, Warning, TEXT("[AFO] Player Connected! Team: %d, Idx: %d. Finding StartTag: %s"), TargetTeam, TargetIndex, *TagStr);
-
-		// 3. 해당 태그를 가진 PlayerStart 찾기
-		TArray<AActor*> FoundActors;
-		UGameplayStatics::GetAllActorsOfClassWithTag(GetWorld(), APlayerStart::StaticClass(), TargetTag, FoundActors);
-
-		if (FoundActors.Num() > 0)
-		{
-			return FoundActors[0];
-		}
-	}
-
-	// 정보를 못 찾을 경우 기본 PlayerStart 반환
-	UE_LOG(LogTemp, Error, TEXT("[AFO] Failed to find specific PlayerStart. Using default."));
-	return Super::ChoosePlayerStart_Implementation(Player);
-}
+//// 캐릭터 선택 화면 구현 전 임시 캐릭터 설정 함수
+//UClass* AAFGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
+//{
+//	// 접속한 순서에 따라 클래스 배정
+//	PlayerCount++;
+//
+//	UE_LOG(LogTemp, Warning, TEXT("Player Joined! Current Count: %d"), PlayerCount);
+//
+//	if (PlayerCount == 1 && FirstCharacterClass)
+//	{
+//		return FirstCharacterClass;
+//	}
+//	else if (PlayerCount == 2 && SecondCharacterClass)
+//	{
+//		return SecondCharacterClass;
+//	}
+//	else if (PlayerCount == 3 && ThirdCharacterClass)
+//	{
+//		return ThirdCharacterClass;
+//	}
+//	else if (PlayerCount == 4 && FourthCharacterClass)
+//	{
+//		return FourthCharacterClass;
+//	}
+//
+//	// 3번째 이후거나 설정이 안 되어있으면 기본 Pawn 클래스 사용
+//	return Super::GetDefaultPawnClassForController_Implementation(InController);
+//}
+//
+//
+//AActor* AAFGameMode::ChoosePlayerStart_Implementation(AController* Player)
+//{
+//	// 1. 서버 권한 및 유효성 검사
+//	if (!Player) return nullptr;
+//
+//	// 2. AFO 플레이어 상태 정보 가져오기
+//	AAFPlayerState* PS = Player->GetPlayerState<AAFPlayerState>();
+//	if (PS)
+//	{
+//		// 현재 로그에 찍히고 있는 정보를 기반으로 가져옴
+//		int32 TargetTeam = PS->GetTeamID();     // 0 또는 1
+//		int32 TargetIndex = PS->GetTeamIndex(); // 0 또는 1
+//
+//		// 태그 생성: "0_0", "0_1" 등
+//		FString TagStr = FString::Printf(TEXT("%d_%d"), TargetTeam, TargetIndex);
+//		FName TargetTag = FName(*TagStr);
+//
+//		UE_LOG(LogTemp, Warning, TEXT("[AFO] Player Connected! Team: %d, Idx: %d. Finding StartTag: %s"), TargetTeam, TargetIndex, *TagStr);
+//
+//		// 3. 해당 태그를 가진 PlayerStart 찾기
+//		TArray<AActor*> FoundActors;
+//		UGameplayStatics::GetAllActorsOfClassWithTag(GetWorld(), APlayerStart::StaticClass(), TargetTag, FoundActors);
+//
+//		if (FoundActors.Num() > 0)
+//		{
+//			return FoundActors[0];
+//		}
+//	}
+//
+//	// 정보를 못 찾을 경우 기본 PlayerStart 반환
+//	UE_LOG(LogTemp, Error, TEXT("[AFO] Failed to find specific PlayerStart. Using default."));
+//	return Super::ChoosePlayerStart_Implementation(Player);
+//}
