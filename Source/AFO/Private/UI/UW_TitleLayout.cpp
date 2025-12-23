@@ -54,7 +54,11 @@ void UUW_TitleLayout::OnPlayButtonClicked()
 		UE_LOG(LogTemp, Error, TEXT("ServerIPEditableText is null. Check BindWidget name."));
 	}
 
-	PC->JoinServer(IP);
+	// ★ 이름 가져오기
+	FString PlayerName = Text_PlayerName ? Text_PlayerName->GetText().ToString().TrimStartAndEnd() : TEXT("DefaultPlayer");
+
+	PC->JoinServer(IP, PlayerName);
+
 }
 
 

@@ -127,18 +127,24 @@ void AAFPlayerController::ToggleESCMenu()
 }
 
 
-
 void AAFPlayerController::Client_ShowRespawnWidget_Implementation(float Duration)
 {
 	if (RespawnWidgetClass)
 	{
-		// 1. 위젯 생성
-		UAFRespawnWidget* RespawnUI = CreateWidget<UAFRespawnWidget>(this, RespawnWidgetClass);
-		if (RespawnUI)
+		CurrentRespawnWidget = CreateWidget<UAFRespawnWidget>(this, RespawnWidgetClass);
+		if (CurrentRespawnWidget)
 		{
-			// 2. 시간 설정 및 뷰포트 추가
-			RespawnUI->InitRespawnTimer(Duration);
-			RespawnUI->AddToViewport();
+			CurrentRespawnWidget->InitRespawnTimer(Duration);
+			CurrentRespawnWidget->AddToViewport();
 		}
+	}
+}
+
+void AAFPlayerController::Client_ClearRespawnWidget_Implementation()
+{
+	if (CurrentRespawnWidget)
+	{
+		CurrentRespawnWidget->RemoveFromParent();
+		CurrentRespawnWidget = nullptr;
 	}
 }

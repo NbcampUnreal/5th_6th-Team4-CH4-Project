@@ -9,6 +9,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Player/AFPlayerState.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Engine/OverlapResult.h"
 #include "Animation/AnimInstance.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
@@ -213,7 +214,7 @@ void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 					PlayerController->AttackAction,
 					ETriggerEvent::Started,
 					this,
-					&ThisClass::Attack
+					&ThisClass::InputAttackMelee
 				);
 			}
 			
@@ -358,7 +359,45 @@ void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInter
 
 void AAFPlayerCharacter::HandleOnCheckHit()
 {
-	UKismetSystemLibrary::PrintString(this, TEXT("HandleOnCheckHit()"));
+	if (!HasAuthority()) return;
+
+	UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!Anim) return;
+
+	UAnimMontage* CurrentMontage = Anim->GetCurrentActiveMontage();
+	if (!CurrentMontage) return;
+
+	// ★ 디버그 로그 추가: 현재 어떤 몽타주로 판정을 시도하는지 출력
+	UE_LOG(LogTemp, Log, TEXT("HandleOnCheckHit Called! Montage: %s"), *CurrentMontage->GetName());
+
+	FString MontageName = CurrentMontage->GetName();
+
+
+	// 현재 어떤 몽타주가 나오느냐에 따라 판정 범위와 대미지를 다르게 설정
+	if (Anim->Montage_IsPlaying(AttackMontage))
+	{
+		DealDamage(); // 기본 공격 (좁은 범위, 20 대미지)
+	}
+	else if (Anim->Montage_IsPlaying(SkillEMontage))
+	{
+		HandleSkillHitCheck(250.f, 40.f, 0.f); // E 스킬 (중간 범위, 40 대미지)
+	}
+	else if (Anim->Montage_IsPlaying(SkillQMontage))
+	{
+		// ★ 다단 히트 로직: 현재 애니메이션 재생 시간을 확인하여 대미지 분기
+		float CurrentPos = Anim->Montage_GetPosition(SkillQMontage);
+
+		if (CurrentPos > 1.4f)
+		{
+			HandleSkillHitCheck(200.f, 30.f, 90.f); // 막타: 넓은 범위, 강한 대미지
+			UE_LOG(LogTemp, Warning, TEXT("Q Skill: Final Heavy Hit!"));
+		}
+		else
+		{
+			HandleSkillHitCheck(100.f, 10.f, 90.f); // 연타: 중간 범위, 약한 대미지
+			UE_LOG(LogTemp, Warning, TEXT("Q Skill: Multi Hit..."));
+		}
+	}
 }
 
 void AAFPlayerCharacter::HandleOnCheckInputAttack()
@@ -393,7 +432,10 @@ void AAFPlayerCharacter::HandleOnCheckInputAttack()
 void AAFPlayerCharacter::EndAttack(UAnimMontage* InMontage, bool bInterruped)
 {
 	UE_LOG(LogTemp, Warning, TEXT("EndAttack CALLED. Montage=%s Interrupted=%d Combo=%d"),*GetNameSafe(InMontage), bInterruped, CurrentComboCount);
-	ensureMsgf(CurrentComboCount != 0, TEXT("CurrentComboCount == 0"));
+	if (CurrentComboCount == 0 && !bIsNowAttacking)
+	{
+		return;
+	}
 
 	CurrentComboCount = 0;
 	bIsAttackKeyPressed = false;
@@ -402,53 +444,6 @@ void AAFPlayerCharacter::EndAttack(UAnimMontage* InMontage, bool bInterruped)
 	if (OnMeleeAttackMontageEndedDelegate.IsBound() == true)
 	{
 		OnMeleeAttackMontageEndedDelegate.Unbind();
-	}
-}
-
-void AAFPlayerCharacter::HandleOnCheckInputAttack_FromNotify(UAnimInstance* Anim)
-{
-	UE_LOG(LogTemp, Warning, TEXT("HandleFromNotify CALLED pressed=%d combo=%d"), bIsAttackKeyPressed, CurrentComboCount);
-
-	if (!Anim || !AttackMontage) return;
-
-	const bool bPlaying = Anim->Montage_IsPlaying(AttackMontage);
-	UE_LOG(LogTemp, Warning, TEXT("IsPlaying(OnNotifyAnim)=%d CurrentActive=%s"),
-		bPlaying,
-		*GetNameSafe(Anim->GetCurrentActiveMontage()));
-
-	if (!bPlaying) return;
-
-	if (bIsAttackKeyPressed)
-	{
-		CurrentComboCount = FMath::Clamp(CurrentComboCount + 1, 1, MaxComboCount);
-		FName NextSectionName = *FString::Printf(TEXT("%s%02d"), *AttackAnimMontageSectionPrefix, CurrentComboCount);
-
-		UE_LOG(LogTemp, Warning, TEXT("JumpToSection => %s"), *NextSectionName.ToString());
-
-		Anim->Montage_JumpToSection(NextSectionName, AttackMontage);
-		bIsAttackKeyPressed = false;
-	}
-}
-
-void AAFPlayerCharacter::InputAttackMelee(const FInputActionValue& InValue)
-{
-	UE_LOG(LogTemp, Warning, TEXT("InputAttackMelee CALLED. CurrentComboCount=%d"), CurrentComboCount);
-	
-	if (GetCharacterMovement()->IsFalling() == true)
-	{
-		return;
-	}
-
-	if (0 == CurrentComboCount)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("BeginAttack()"));
-		BeginAttack();
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Buffer ON (bIsAttackKeyPressed=true)"));
-		ensure(FMath::IsWithinInclusive<int32>(CurrentComboCount, 1, MaxComboCount));
-		bIsAttackKeyPressed = true;
 	}
 }
 
@@ -543,51 +538,42 @@ void AAFPlayerCharacter::Attack()
 
 void AAFPlayerCharacter::DealDamage()
 {
-	if (!GetOwner()->HasAuthority())
-	{
-		return;
-	}
+	if (!HasAuthority()) return;
 
-	UE_LOG(LogTemp, Warning, TEXT("▶ DealDamage() 호출됨 — 실제 공격 판정 실행"));
+	// 1. 공격위치
+	FVector Center = GetActorLocation() + (GetActorForwardVector() * 120.f) + FVector(0, 0, 90.f);
+	float Radius = 120.f;
 
-	// 공격 범위(전방 150cm) 트레이스
-	FVector Start = GetActorLocation();
-	FVector End = Start + (GetActorForwardVector() * 150.f);
-
+	TArray<FOverlapResult> OverlapResults;
+	FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
-	FHitResult Hit;
+	// 공격 범위 표시 디버깅
+	// DrawDebugSphere(GetWorld(), Center, Radius, 16, FColor::Red, false, 1.0f);
 
-	bool bHit = GetWorld()->LineTraceSingleByChannel(
-		Hit,
-		Start,
-		End,
-		ECollisionChannel::ECC_Pawn,
-		Params
+	bool bHit = GetWorld()->OverlapMultiByChannel(
+		OverlapResults, Center, FQuat::Identity, ECC_Pawn, Sphere, Params
 	);
 
 	if (bHit)
 	{
-		AActor* HitActor = Hit.GetActor();
-		if (HitActor)
+		for (const FOverlapResult& Result : OverlapResults)
 		{
-			UAFAttributeComponent* TargetAttr = HitActor->FindComponentByClass<UAFAttributeComponent>();
+			AActor* HitActor = Result.GetActor();
+			if (HitActor && HitActor != this)
+			{
+				// 3. 아군 체크 로직
+				if (IsAlly(HitActor)) continue;
 
-			if (TargetAttr)
-			{
-				TargetAttr->ApplyDamage(20.f, GetController());
-				UE_LOG(LogTemp, Warning, TEXT("공격 성공 → %s에게 데미지 20 적용"), *HitActor->GetName());
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("타겟에 AttributeComponent 없음"));
+				UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>();
+				if (Attr)
+				{
+					Attr->ApplyDamage(20.f, GetController());
+					UE_LOG(LogTemp, Error, TEXT("!!! [DAMAGE SUCCESS] Target: %s !!!"), *HitActor->GetName());
+				}
 			}
 		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("공격 실패: 타격 없음"));
 	}
 }
 
@@ -659,4 +645,129 @@ void AAFPlayerCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 
+}
+
+void AAFPlayerCharacter::InputAttackMelee(const FInputActionValue& InValue)
+{
+	Server_DoComboAttack();
+}
+
+void AAFPlayerCharacter::Server_DoComboAttack_Implementation()
+{
+	if (!bIsNowAttacking)
+	{
+		bIsNowAttacking = true;
+		CurrentComboCount = 1;
+		bIsAttackKeyPressed = false;
+
+		Multicast_PlayComboSection(1);
+	}
+	else
+	{
+		bIsAttackKeyPressed = true;
+	}
+}
+
+void AAFPlayerCharacter::Multicast_PlayComboSection_Implementation(int32 ComboCount)
+{
+	UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!Anim || !AttackMontage) return;
+
+	if (ComboCount == 1)
+	{
+		PlayAnimMontage(AttackMontage, 1.f, FName("Attack01"));
+
+		// 종료 시점 리셋을 위한 델리게이트
+		OnMeleeAttackMontageEndedDelegate.BindUObject(this, &AAFPlayerCharacter::EndAttack);
+		Anim->Montage_SetEndDelegate(OnMeleeAttackMontageEndedDelegate, AttackMontage);
+	}
+	else
+	{
+		// 콤보 섹션 점프
+		FName NextSectionName = *FString::Printf(TEXT("%s%02d"), *AttackAnimMontageSectionPrefix, ComboCount);
+		Anim->Montage_JumpToSection(NextSectionName, AttackMontage);
+	}
+}
+
+void AAFPlayerCharacter::HandleOnCheckInputAttack_FromNotify(UAnimInstance* Anim)
+{
+	if (!HasAuthority()) return;
+
+	if (bIsAttackKeyPressed)
+	{
+		bIsAttackKeyPressed = false;
+		CurrentComboCount = FMath::Clamp(CurrentComboCount + 1, 1, MaxComboCount);
+
+		Multicast_PlayComboSection(CurrentComboCount);
+	}
+}
+
+// 스킬 노티파이에서 호출할 함수
+void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float RotationOffset)
+{
+	if (!HasAuthority()) return;
+
+	// 1. 캐릭터의 기본 전방 벡터
+	FVector Forward = GetActorForwardVector();
+
+	// 2. ★ 전방 벡터를 RotationOffset만큼 회전시킴
+	FVector SkillDirection = Forward.RotateAngleAxis(RotationOffset, FVector(0, 0, 1));
+
+	// 3. 캐릭터 위치에서 '회전된 방향'으로 Sphere를 배치
+	FVector SphereLocation = GetActorLocation() + (SkillDirection * 150.f) + FVector(0, 0, 60.f);
+
+	// 4. 디버그 구체 그리기 (위치가 맞는지 확인)
+	// DrawDebugSphere(GetWorld(), SphereLocation, Radius, 16, FColor::Cyan, false, 1.0f);
+
+	TArray<FOverlapResult> OverlapResults;
+	FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	// 5. 판정 실행
+	bool bHit = GetWorld()->OverlapMultiByChannel(
+		OverlapResults,
+		SphereLocation,
+		FQuat::Identity,
+		ECC_Pawn,
+		Sphere,
+		Params
+	);
+
+
+	if (bHit)
+	{
+		for (auto& Result : OverlapResults)
+		{
+			AActor* HitActor = Result.GetActor();
+			if (HitActor)
+			{
+				UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>();
+				if (Attr)
+				{
+					Attr->ApplyDamage(Damage, GetController());
+					UE_LOG(LogTemp, Warning, TEXT("Skill Hit! -> %s"), *HitActor->GetName());
+				}
+			}
+		}
+	}
+}
+
+
+bool AAFPlayerCharacter::IsAlly(AActor* InTargetActor)
+{
+	if (!InTargetActor) return false;
+
+	APawn* TargetPawn = Cast<APawn>(InTargetActor);
+	if (!TargetPawn) return false;
+
+	AAFPlayerState* MyPS = Cast<AAFPlayerState>(GetPlayerState());
+	AAFPlayerState* TargetPS = Cast<AAFPlayerState>(TargetPawn->GetPlayerState());
+
+	if (MyPS && TargetPS)
+	{
+		return MyPS->GetTeamID() == TargetPS->GetTeamID();
+	}
+
+	return false;
 }

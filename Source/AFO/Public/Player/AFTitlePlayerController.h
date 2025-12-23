@@ -13,7 +13,7 @@ public:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     //void JoinServer();
-    void JoinServer(const FString& InIPAddress);
+    void JoinServer(const FString& InIPAddress, const FString& InPlayerName);
 
 //protected:
 //    UFUNCTION(Server, Reliable)

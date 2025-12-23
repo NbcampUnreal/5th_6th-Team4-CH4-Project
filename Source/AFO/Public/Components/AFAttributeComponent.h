@@ -19,10 +19,10 @@ protected:
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Attribute")
-	float MaxHealth = 100.f;
+	float MaxHealth = 300.f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Attribute")
-	float Health = 100.f;
+	float Health = 300.f;
 
 	//사망 상태 플래그
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Attribute")

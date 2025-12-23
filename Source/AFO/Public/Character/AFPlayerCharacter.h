@@ -183,4 +183,20 @@ protected:
 	void MulticastPlayAttackMontage();
 
 	virtual void OnRep_PlayerState() override;
+
+
+	// 콤보 서버 함수
+	UFUNCTION(Server, Reliable)
+	void Server_DoComboAttack();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayComboSection(int32 ComboCount);
+
+	// 스킬 범위 함수
+	UFUNCTION()
+	void HandleSkillHitCheck(float Radius, float Damage, float RotationOffset = 0.f);
+
+	protected:
+		// 아군인지 확인하는 함수
+		bool IsAlly(AActor* InTargetActor);
+
 };

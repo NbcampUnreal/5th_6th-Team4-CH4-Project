@@ -11,7 +11,7 @@
 AAFGameMode::AAFGameMode()
 {
 	GameStateClass = AAFGameState::StaticClass();
-	RoundDuration = 60;
+	RoundDuration = 180;
 }
 
 AAFGameState* AAFGameMode::GetAFGameState() const
@@ -34,7 +34,27 @@ void AAFGameMode::BeginPlay()
 	GS->TeamRedKillScore = 0;
 	GS->TeamBlueKillScore = 0;
 
-	StartRound();
+
+
+	// 1. 모든 플레이어의 입력을 처음에 막음
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		if (APlayerController* PC = It->Get())
+		{
+			PC->SetInputMode(FInputModeGameOnly());
+			// 캐릭터 조작 금지 (Move 등을 못하게 함)
+			if (APawn* P = PC->GetPawn())
+			{
+				P->DisableInput(PC);
+			}
+		}
+	}
+
+	GetWorldTimerManager().SetTimer(TimerHandle_GameStart, this, &AAFGameMode::StartRound, (float)StartDelayTime, false);
+
+	UE_LOG(LogTemp, Log, TEXT("Game will start in 5 seconds..."));
+
+
 }
 
 void AAFGameMode::StartRound()
@@ -46,6 +66,21 @@ void AAFGameMode::StartRound()
 		return;
 	}
 
+	// 캐릭터 움직이기 가능
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		if (APlayerController* PC = It->Get())
+		{
+			if (APawn* P = PC->GetPawn())
+			{
+				P->EnableInput(PC);
+			}
+		}
+	}
+
+
+
+
 	GS->SetRemainingTime(RoundDuration);
 	GS->StartGameTimer();
 
@@ -56,31 +91,40 @@ void AAFGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
 
-	if (!NewPlayer) return;
+	if (!ensureMsgf(NewPlayer, TEXT("PostLogin: NewPlayer is nullptr!")))
+	{
+		return;
+	}
 
-	uint8 AssignedTeam = (PlayerTeams.Num() % 2 == 0) ? 0 : 1; // 0:RED, 1:BLUE
+	uint8 AssignedTeam = (PlayerTeams.Num() % 2 == 0) ? 0 : 1; // 0: RED, 1: BLUE
 	PlayerTeams.Add(NewPlayer, AssignedTeam);
 
-	if (AAFPlayerState* PS = NewPlayer->GetPlayerState<AAFPlayerState>())
+	AAFPlayerState* PS = NewPlayer->GetPlayerState<AAFPlayerState>();
+	if (PS)
 	{
-		int32 TeamCount = 0;
-		for (const auto& Elem : PlayerTeams)
+		int32 TeamMemberIndex = 0;
+		for (const auto& Pair : PlayerTeams)
 		{
-			if (Elem.Value == AssignedTeam)
+			if (Pair.Value == AssignedTeam)
 			{
-				TeamCount++;
+				TeamMemberIndex++;
 			}
 		}
 
-		PS->SetTeamInfo(AssignedTeam, (uint8)TeamCount);
+		PS->SetTeamInfo(AssignedTeam, static_cast<uint8>(TeamMemberIndex));
 		PS->SetDead(false);
+
 		PS->SetHealth(PS->GetMaxHealth(), PS->GetMaxHealth());
 		PS->SetMana(PS->GetMaxMana(), PS->GetMaxMana());
 
-		UE_LOG(LogTemp, Warning, TEXT("Player Joined: %s Team = %s, Index = %d"),
+		UE_LOG(LogTemp, Log, TEXT("[AFO] Player Joined: %s | Team: %s | TeamIdx: %d"),
 			*NewPlayer->GetName(),
 			AssignedTeam == 0 ? TEXT("RED") : TEXT("BLUE"),
-			TeamCount);
+			TeamMemberIndex);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s: Failed to cast to AAFPlayerState!"), *FString(__FUNCTION__));
 	}
 }
 
@@ -133,6 +177,8 @@ void AAFGameMode::ReportKill(AController* KillerController)
 		GS->TeamRedKillScore,
 		GS->TeamBlueKillScore);
 }
+
+// 임시로 기존 함수 비활성화
 
 AActor* AAFGameMode::ChoosePlayerStart_Implementation(AController* Player)
 {
@@ -205,6 +251,7 @@ void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* 
 	// 리스폰 위젯 띄우기
 	if (AAFPlayerController* PC = Cast<AAFPlayerController>(VictimController))
 	{
+		PC->Client_ClearRespawnWidget();
 		PC->Client_ShowRespawnWidget(RespawnDelay);
 	}
 
@@ -268,3 +315,69 @@ void AAFGameMode::EndRound()
 		World->ServerTravel(TEXT("TitleMenu"));
 	}
 }
+
+
+
+//// 캐릭터 선택 화면 구현 전 임시 캐릭터 설정 함수
+//UClass* AAFGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
+//{
+//	// 접속한 순서에 따라 클래스 배정
+//	PlayerCount++;
+//
+//	UE_LOG(LogTemp, Warning, TEXT("Player Joined! Current Count: %d"), PlayerCount);
+//
+//	if (PlayerCount == 1 && FirstCharacterClass)
+//	{
+//		return FirstCharacterClass;
+//	}
+//	else if (PlayerCount == 2 && SecondCharacterClass)
+//	{
+//		return SecondCharacterClass;
+//	}
+//	else if (PlayerCount == 3 && ThirdCharacterClass)
+//	{
+//		return ThirdCharacterClass;
+//	}
+//	else if (PlayerCount == 4 && FourthCharacterClass)
+//	{
+//		return FourthCharacterClass;
+//	}
+//
+//	// 3번째 이후거나 설정이 안 되어있으면 기본 Pawn 클래스 사용
+//	return Super::GetDefaultPawnClassForController_Implementation(InController);
+//}
+//
+//
+//AActor* AAFGameMode::ChoosePlayerStart_Implementation(AController* Player)
+//{
+//	// 1. 서버 권한 및 유효성 검사
+//	if (!Player) return nullptr;
+//
+//	// 2. AFO 플레이어 상태 정보 가져오기
+//	AAFPlayerState* PS = Player->GetPlayerState<AAFPlayerState>();
+//	if (PS)
+//	{
+//		// 현재 로그에 찍히고 있는 정보를 기반으로 가져옴
+//		int32 TargetTeam = PS->GetTeamID();     // 0 또는 1
+//		int32 TargetIndex = PS->GetTeamIndex(); // 0 또는 1
+//
+//		// 태그 생성: "0_0", "0_1" 등
+//		FString TagStr = FString::Printf(TEXT("%d_%d"), TargetTeam, TargetIndex);
+//		FName TargetTag = FName(*TagStr);
+//
+//		UE_LOG(LogTemp, Warning, TEXT("[AFO] Player Connected! Team: %d, Idx: %d. Finding StartTag: %s"), TargetTeam, TargetIndex, *TagStr);
+//
+//		// 3. 해당 태그를 가진 PlayerStart 찾기
+//		TArray<AActor*> FoundActors;
+//		UGameplayStatics::GetAllActorsOfClassWithTag(GetWorld(), APlayerStart::StaticClass(), TargetTag, FoundActors);
+//
+//		if (FoundActors.Num() > 0)
+//		{
+//			return FoundActors[0];
+//		}
+//	}
+//
+//	// 정보를 못 찾을 경우 기본 PlayerStart 반환
+//	UE_LOG(LogTemp, Error, TEXT("[AFO] Failed to find specific PlayerStart. Using default."));
+//	return Super::ChoosePlayerStart_Implementation(Player);
+//}
