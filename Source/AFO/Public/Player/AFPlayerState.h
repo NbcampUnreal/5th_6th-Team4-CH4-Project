@@ -44,14 +44,23 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_DeathCount)
 	int32 DeathCount;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_TeamInfo)
 	uint8 TeamID;  	// 팀 정보 ( 0: RED, 1: BLUE)
 
 	UPROPERTY(Replicated)
 	uint8 TeamIndex; 	// 팀 내 인덱스
 
+	UFUNCTION()
+	void OnRep_TeamInfo();
+
 	UPROPERTY(ReplicatedUsing = OnRep_IsDead)
 	bool bIsDead = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_SelectedCharacter) 
+	uint8 SelectedCharacterId = 255; // 255=미선택
+
+	UPROPERTY(ReplicatedUsing = OnRep_Ready)
+	bool bReady = false;
 
 //  ===============================
 //  OnRep 함수
@@ -68,6 +77,11 @@ protected:
 	UFUNCTION()
 	void OnRep_IsDead();
 
+	UFUNCTION() 
+	void OnRep_SelectedCharacter();
+
+	UFUNCTION()
+	void OnRep_Ready();
 //  ===============================
 //  Public API (Getter / Setter)
 // ================================
@@ -92,6 +106,10 @@ public:
 
 	bool IsDead() const { return bIsDead; }
 
+	bool HasSelectedCharacter() const { return SelectedCharacterId != 255; }
+	uint8 GetSelectedCharacterId() const { return SelectedCharacterId; }
+	bool IsReady() const { return bReady; }
+
 	//Setter (서버전용)
 	void SetHealth(float NewHealth, float NewMaxHealth);
 	void SetMana(float NewMana, float NewMaxMana);
@@ -102,6 +120,10 @@ public:
 	void SetDead(bool bNewDead);
 	void ResetForRespawn();
 
+
+	void SetSelectedCharacter_Server(uint8 InId);
+	void SetReady_Server(bool bNewReady);
+	void ResetLobbySelection_Server();
 
 	// 추가 함수
 

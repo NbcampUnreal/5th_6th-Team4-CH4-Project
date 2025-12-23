@@ -5,6 +5,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Player/AFPlayerController.h"
 #include "Net/UnrealNetwork.h"
+#include "Game/AFLobbyGameState.h"
 
 AAFPlayerState::AAFPlayerState()
 {
@@ -32,6 +33,8 @@ void AAFPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AAFPlayerState, TeamID);
 	DOREPLIFETIME(AAFPlayerState, TeamIndex);
 	DOREPLIFETIME(AAFPlayerState, bIsDead);
+	DOREPLIFETIME(AAFPlayerState, SelectedCharacterId);
+	DOREPLIFETIME(AAFPlayerState, bReady);
 }
 
 // =========================
@@ -60,6 +63,15 @@ void AAFPlayerState::OnRep_DeathCount()
 void AAFPlayerState::OnRep_IsDead()
 {
 	// 여기다가 UI 갱신
+}
+
+void AAFPlayerState::OnRep_SelectedCharacter() 
+{
+	/* UI 갱신 가능 */ 
+}
+void AAFPlayerState::OnRep_Ready()
+{
+
 }
 
 // =========================
@@ -117,6 +129,17 @@ void AAFPlayerState::IncrementDeathCount()
 	OnRep_DeathCount();
 }
 
+void AAFPlayerState::OnRep_TeamInfo()
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (AAFLobbyGameState* LGS = World->GetGameState<AAFLobbyGameState>())
+		{
+			LGS->OnCountsChanged.Broadcast();
+		}
+	}
+}
+
 void AAFPlayerState::SetTeamInfo(uint8 NewTeamID, uint8 NewTeamIndex)
 {
 	if (!HasAuthority()) return;
@@ -124,7 +147,9 @@ void AAFPlayerState::SetTeamInfo(uint8 NewTeamID, uint8 NewTeamIndex)
 	TeamID = NewTeamID;
 	TeamIndex = NewTeamIndex;
 
-	// TeamID와 TeamIndex는 복제되어 클라이언트에게 전달됩니다.
+	ForceNetUpdate();
+
+	OnRep_TeamInfo();
 }
 
 
@@ -150,6 +175,29 @@ void AAFPlayerState::ResetForRespawn()
 	SetDead(false);
 	SetHealth(MaxHealth, MaxHealth);
 	SetMana(MaxMana, MaxMana);
+}
+
+void AAFPlayerState::SetSelectedCharacter_Server(uint8 InId)
+{
+	if (!HasAuthority()) return;
+	SelectedCharacterId = InId;
+	OnRep_SelectedCharacter();
+}
+
+void AAFPlayerState::SetReady_Server(bool bNewReady)
+{
+	if (!HasAuthority()) return;
+	bReady = bNewReady;
+	OnRep_Ready();
+}
+
+void AAFPlayerState::ResetLobbySelection_Server()
+{
+	if (!HasAuthority()) return;
+	SelectedCharacterId = 255;
+	bReady = false;
+	OnRep_SelectedCharacter();
+	OnRep_Ready();
 }
 
 void AAFPlayerState::AddMana(float Amount)
