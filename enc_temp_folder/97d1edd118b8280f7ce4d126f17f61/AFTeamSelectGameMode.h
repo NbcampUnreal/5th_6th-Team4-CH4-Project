@@ -16,6 +16,7 @@ public:
 	virtual void Logout(AController* Exiting) override;
 
 	bool RequestSetTeam(AController* Requester, uint8 NewTeamId);
+
 	bool CanAdvanceToCharacterSelect() const;
 	bool AdvanceToCharacterSelect();
 
@@ -25,5 +26,5 @@ private:
 	void UpdateLobbyCounts();
 
 	UPROPERTY(EditDefaultsOnly, Category = "Travel")
-	FString CharacterSelectMapURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOCharacterSelectMap?listen");
+	FString CharacterSelectMapURL = TEXT("AFOCharacterSelectMap?listen");
 };

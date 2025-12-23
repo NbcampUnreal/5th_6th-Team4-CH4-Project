@@ -7,6 +7,7 @@
 #include "GameFramework/GameState.h"
 #include "Game/AFCharacterSelectGameMode.h"
 #include "Player/AFPlayerState.h"
+#include "TimerManager.h"
 
 void UUW_CharacterSelect::NativeConstruct()
 {
@@ -16,19 +17,32 @@ void UUW_CharacterSelect::NativeConstruct()
 	if (BtnChar1) BtnChar1->OnClicked.AddDynamic(this, &ThisClass::OnClickChar1);
 	if (BtnChar2) BtnChar2->OnClicked.AddDynamic(this, &ThisClass::OnClickChar2);
 	if (BtnChar3) BtnChar3->OnClicked.AddDynamic(this, &ThisClass::OnClickChar3);
+	if (BtnChar4) BtnChar4->OnClicked.AddDynamic(this, &ThisClass::OnClickChar4);
 	if (BtnReady) BtnReady->OnClicked.AddDynamic(this, &ThisClass::OnClickReady);
 
-	// 캐릭 이름 표시(옵션) - GameMode의 옵션을 UI 텍스트로 박아줌
+
 	if (AAFCharacterSelectGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AAFCharacterSelectGameMode>() : nullptr)
 	{
 		const auto& Opt = GM->GetCharacterOptions();
-		if (Opt.Num() >= 4)
+		if (Opt.Num() >= 5)
 		{
 			if (TxtChar0) TxtChar0->SetText(Opt[0].DisplayName);
 			if (TxtChar1) TxtChar1->SetText(Opt[1].DisplayName);
 			if (TxtChar2) TxtChar2->SetText(Opt[2].DisplayName);
 			if (TxtChar3) TxtChar3->SetText(Opt[3].DisplayName);
+			if (TxtChar4) TxtChar4->SetText(Opt[4].DisplayName);
 		}
+	}
+
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			RefreshTimerHandle,
+			this,
+			&ThisClass::RefreshUI,
+			0.2f,
+			true
+		);
 	}
 
 	RefreshUI();
@@ -38,6 +52,7 @@ void UUW_CharacterSelect::OnClickChar0() { SelectCharacter(0); }
 void UUW_CharacterSelect::OnClickChar1() { SelectCharacter(1); }
 void UUW_CharacterSelect::OnClickChar2() { SelectCharacter(2); }
 void UUW_CharacterSelect::OnClickChar3() { SelectCharacter(3); }
+void UUW_CharacterSelect::OnClickChar4() { SelectCharacter(4); }
 
 void UUW_CharacterSelect::SelectCharacter(uint8 Id)
 {
@@ -61,8 +76,6 @@ void UUW_CharacterSelect::OnClickReady()
 	{
 		LPC->ServerRequestSetReady(bNewReady);
 	}
-
-	RefreshUI();
 }
 
 void UUW_CharacterSelect::RefreshUI()

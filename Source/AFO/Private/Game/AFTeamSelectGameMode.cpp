@@ -117,7 +117,13 @@ bool AAFTeamSelectGameMode::CanAdvanceToCharacterSelect() const
 	if (!GameState) return false;
 
 	const int32 Total = GameState->PlayerArray.Num();
-	return (Total == 4 && GetTeamCount(0) == 2 && GetTeamCount(1) == 2);
+	const int32 Red = GetTeamCount(0);
+	const int32 Blue = GetTeamCount(1);
+	const bool bEnoughPlayers = (Total >= 2);
+	const bool bHasBothTeams = (Red > 0 && Blue > 0);
+	const bool bNoOverflowTeam = (Red <= 2 && Blue <= 2);
+
+	return bEnoughPlayers && bHasBothTeams && bNoOverflowTeam;
 }
 
 bool AAFTeamSelectGameMode::AdvanceToCharacterSelect()
@@ -126,6 +132,8 @@ bool AAFTeamSelectGameMode::AdvanceToCharacterSelect()
 	{
 		return false;
 	}
+
+	if (!GetWorld()) return false;
 
 	GetWorld()->ServerTravel(*CharacterSelectMapURL);
 	return true;

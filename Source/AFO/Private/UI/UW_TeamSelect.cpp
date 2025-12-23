@@ -79,10 +79,12 @@ void UUW_TeamSelect::RefreshUI()
 		TxtCounts->SetText(FText::FromString(S));
 	}
 
-	if (BtnNext)
+	if (BtnNext && LGS)
 	{
-		const bool bEnableNext = (LGS->ConnectedPlayers == 4 && LGS->RedCount == 2 && LGS->BlueCount == 2);
-		BtnNext->SetIsEnabled(bEnableNext);
+		const bool bHasBothTeams = (LGS->RedCount > 0 && LGS->BlueCount > 0);
+		const bool bNoOverflowTeam = (LGS->RedCount <= 2 && LGS->BlueCount <= 2);
+		const bool bEnoughPlayers = (LGS->ConnectedPlayers >= 2);
+		BtnNext->SetIsEnabled(bEnoughPlayers && bHasBothTeams && bNoOverflowTeam);
 	}
 
 	RebuildTeamLists();

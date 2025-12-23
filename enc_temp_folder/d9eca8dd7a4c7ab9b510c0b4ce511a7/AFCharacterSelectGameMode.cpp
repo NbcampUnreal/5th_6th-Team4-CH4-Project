@@ -46,20 +46,23 @@ bool AAFCharacterSelectGameMode::RequestSelectCharacter(AController* Requester, 
 {
 	if (!HasAuthority() || !Requester) return false;
 
-	const bool bValidId = CharacterOptions.ContainsByPredicate([&](const FAFCharacterOption& O) { return O.Id == CharacterId; });
-
-	if (!bValidId) return false;
+	if (!CharacterOptions.IsValidIndex(CharacterId))
+	{
+		return false;
+	}
 
 	AAFPlayerState* PS = Requester->GetPlayerState<AAFPlayerState>();
 	if (!PS) return false;
 
 	if (IsCharacterTakenInTeam(PS->GetTeamID(), CharacterId, PS))
+	{
 		return false;
+	}
 
 	PS->SetSelectedCharacter_Server(CharacterId);
 	PS->SetReady_Server(false);
-
 	PS->ForceNetUpdate();
+
 	TryStartBattle();
 	return true;
 }

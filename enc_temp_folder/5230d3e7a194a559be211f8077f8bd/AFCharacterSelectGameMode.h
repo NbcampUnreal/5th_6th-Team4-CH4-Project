@@ -14,9 +14,6 @@ struct FAFCharacterOption
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FText DisplayName;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<APawn> PawnClass;
 };
 
 UCLASS()
