@@ -107,6 +107,11 @@ protected:
 	void InputHeavyAttack(const FInputActionValue& InValue);
 	
 	bool bIsHeavyAttacking = false;
+	
+	UPROPERTY(EditDefaultsOnly, Category="Hit")
+	TObjectPtr<UAnimMontage> HitReactMontage;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Hit")
+	bool bIsHit = false;
 
 public:
 	void Attack();
@@ -126,6 +131,8 @@ public:
 	virtual void EndAttack(UAnimMontage* InMontage, bool bInterruped);
 	
 	void HandleOnCheckInputAttack_FromNotify(UAnimInstance* Anim);
+	
+	void TriggerHitReact_FromAttacker(AActor* Attacker);
 
 private:
 	UPROPERTY(VisibleAnywhere)
@@ -172,9 +179,7 @@ protected:
 
 	void LockMovement();
 	void UnlockMovement();
-
-
-
+	
 	// 서버로 공격 요청을 보내는 함수 (클라이언트에서 호출)
 	UFUNCTION(Server, Reliable)
 	void ServerAttackRequest();
@@ -183,8 +188,7 @@ protected:
 	void MulticastPlayAttackMontage();
 
 	virtual void OnRep_PlayerState() override;
-
-
+	
 	// 콤보 서버 함수
 	UFUNCTION(Server, Reliable)
 	void Server_DoComboAttack();
@@ -195,8 +199,11 @@ protected:
 	UFUNCTION()
 	void HandleSkillHitCheck(float Radius, float Damage, float RotationOffset = 0.f);
 
-	protected:
-		// 아군인지 확인하는 함수
-		bool IsAlly(AActor* InTargetActor);
+	// 아군인지 확인하는 함수
+	bool IsAlly(AActor* InTargetActor);
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayHitReact(FName SectionName);
+	FName CalcHitReactSection(AActor* Attacker) const;
 
 };

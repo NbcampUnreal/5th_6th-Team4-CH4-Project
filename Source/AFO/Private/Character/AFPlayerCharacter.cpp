@@ -355,6 +355,11 @@ void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInter
 	{
 		bIsAttacking = false;
 	}
+	
+	if (Montage == HitReactMontage)
+	{
+		bIsHit = false;
+	}
 }
 
 void AAFPlayerCharacter::HandleOnCheckHit()
@@ -540,7 +545,6 @@ void AAFPlayerCharacter::DealDamage()
 {
 	if (!HasAuthority()) return;
 
-	// 1. 공격위치
 	FVector Center = GetActorLocation() + (GetActorForwardVector() * 120.f) + FVector(0, 0, 90.f);
 	float Radius = 120.f;
 
@@ -549,13 +553,10 @@ void AAFPlayerCharacter::DealDamage()
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
-	// 공격 범위 표시 디버깅
-	// DrawDebugSphere(GetWorld(), Center, Radius, 16, FColor::Red, false, 1.0f);
-
 	bool bHit = GetWorld()->OverlapMultiByChannel(
 		OverlapResults, Center, FQuat::Identity, ECC_Pawn, Sphere, Params
 	);
-
+	
 	if (bHit)
 	{
 		for (const FOverlapResult& Result : OverlapResults)
@@ -570,7 +571,11 @@ void AAFPlayerCharacter::DealDamage()
 				if (Attr)
 				{
 					Attr->ApplyDamage(20.f, GetController());
-					UE_LOG(LogTemp, Error, TEXT("!!! [DAMAGE SUCCESS] Target: %s !!!"), *HitActor->GetName());
+				}
+				
+				if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
+				{
+					Victim->TriggerHitReact_FromAttacker(this);
 				}
 			}
 		}
@@ -702,7 +707,44 @@ void AAFPlayerCharacter::HandleOnCheckInputAttack_FromNotify(UAnimInstance* Anim
 	}
 }
 
-// 스킬 노티파이에서 호출할 함수
+FName AAFPlayerCharacter::CalcHitReactSection(AActor* Attacker) const
+{
+	if (!Attacker) return FName("HitReact_Front");
+
+	FVector Dir = Attacker->GetActorLocation() - GetActorLocation();
+	Dir.Z = 0.f;
+	if (Dir.IsNearlyZero()) return FName("HitReact_Front");
+	Dir.Normalize();
+
+	const FVector Fwd = GetActorForwardVector();
+	const FVector Right = GetActorRightVector();
+
+	const float F = FVector::DotProduct(Fwd, Dir);
+	const float R = FVector::DotProduct(Right, Dir);
+
+	if (FMath::Abs(F) >= FMath::Abs(R))
+	{
+		return (F >= 0.f) ? FName("HitReact_Front") : FName("HitReact_Back");
+	}
+	else
+	{
+		return (R >= 0.f) ? FName("HitReact_Right") : FName("HitReact_Left");
+	}
+}
+
+void AAFPlayerCharacter::TriggerHitReact_FromAttacker(AActor* Attacker)
+{
+	// 멀티 기준: 서버에서만 결정
+	if (!HasAuthority()) return;
+	if (!HitReactMontage) return;
+	if (bIsHit) return;
+
+	bIsHit = true;
+
+	const FName Section = CalcHitReactSection(Attacker);
+	Multicast_PlayHitReact(Section);
+}
+
 void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float RotationOffset)
 {
 	if (!HasAuthority()) return;
@@ -733,8 +775,7 @@ void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float R
 		Sphere,
 		Params
 	);
-
-
+	
 	if (bHit)
 	{
 		for (auto& Result : OverlapResults)
@@ -742,17 +783,24 @@ void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float R
 			AActor* HitActor = Result.GetActor();
 			if (HitActor)
 			{
+				if (HitActor == this) continue;     // 자기 자신 제외
+				if (IsAlly(HitActor)) continue;     // 아군 제외
+				
 				UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>();
 				if (Attr)
 				{
 					Attr->ApplyDamage(Damage, GetController());
 					UE_LOG(LogTemp, Warning, TEXT("Skill Hit! -> %s"), *HitActor->GetName());
 				}
+				
+				if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
+				{
+					Victim->TriggerHitReact_FromAttacker(this);
+				}
 			}
 		}
 	}
 }
-
 
 bool AAFPlayerCharacter::IsAlly(AActor* InTargetActor)
 {
@@ -770,4 +818,15 @@ bool AAFPlayerCharacter::IsAlly(AActor* InTargetActor)
 	}
 
 	return false;
+}
+
+void AAFPlayerCharacter::Multicast_PlayHitReact_Implementation(FName SectionName)
+{
+	if (!HitReactMontage) return;
+
+	// 여기서 "피격 시 공격 끊기" 원하면 아래 2줄 중 하나 선택
+	// bIsAttacking = false;
+	// if (UAnimInstance* Anim = GetMesh()->GetAnimInstance()) Anim->StopAllMontages(0.05f);
+
+	PlayAnimMontage(HitReactMontage, 1.f, SectionName);
 }
