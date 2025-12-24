@@ -11,6 +11,15 @@ class UAnimMontage;
 struct FInputActionValue;
 class UAFAttributeComponent;
 
+UENUM(BlueprintType)
+enum class EAFHitDir : uint8
+{
+	Front,
+	Back,
+	Left,
+	Right
+};
+
 UCLASS()
 class AFO_API AAFPlayerCharacter : public ACharacter
 {
@@ -109,7 +118,17 @@ protected:
 	bool bIsHeavyAttacking = false;
 	
 	UPROPERTY(EditDefaultsOnly, Category="Hit")
-	TObjectPtr<UAnimMontage> HitReactMontage;
+	TObjectPtr<UAnimMontage> HitReactMontage_Front;
+
+	UPROPERTY(EditDefaultsOnly, Category="Hit")
+	TObjectPtr<UAnimMontage> HitReactMontage_Back;
+
+	UPROPERTY(EditDefaultsOnly, Category="Hit")
+	TObjectPtr<UAnimMontage> HitReactMontage_Left;
+
+	UPROPERTY(EditDefaultsOnly, Category="Hit")
+	TObjectPtr<UAnimMontage> HitReactMontage_Right;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Hit")
 	bool bIsHit = false;
 
@@ -203,7 +222,7 @@ protected:
 	bool IsAlly(AActor* InTargetActor);
 	
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlayHitReact(FName SectionName);
-	FName CalcHitReactSection(AActor* Attacker) const;
+	void Multicast_PlayHitReact(EAFHitDir Dir);
+	EAFHitDir CalcHitDir(AActor* Attacker) const;
 
 };

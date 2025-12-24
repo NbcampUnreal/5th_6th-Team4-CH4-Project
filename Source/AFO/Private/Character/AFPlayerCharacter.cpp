@@ -355,8 +355,10 @@ void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInter
 	{
 		bIsAttacking = false;
 	}
-	
-	if (Montage == HitReactMontage)
+	if (Montage == HitReactMontage_Front.Get() ||
+		Montage == HitReactMontage_Back.Get() ||
+		Montage == HitReactMontage_Left.Get() ||
+		Montage == HitReactMontage_Right.Get())
 	{
 		bIsHit = false;
 	}
@@ -707,42 +709,15 @@ void AAFPlayerCharacter::HandleOnCheckInputAttack_FromNotify(UAnimInstance* Anim
 	}
 }
 
-FName AAFPlayerCharacter::CalcHitReactSection(AActor* Attacker) const
-{
-	if (!Attacker) return FName("HitReact_Front");
-
-	FVector Dir = Attacker->GetActorLocation() - GetActorLocation();
-	Dir.Z = 0.f;
-	if (Dir.IsNearlyZero()) return FName("HitReact_Front");
-	Dir.Normalize();
-
-	const FVector Fwd = GetActorForwardVector();
-	const FVector Right = GetActorRightVector();
-
-	const float F = FVector::DotProduct(Fwd, Dir);
-	const float R = FVector::DotProduct(Right, Dir);
-
-	if (FMath::Abs(F) >= FMath::Abs(R))
-	{
-		return (F >= 0.f) ? FName("HitReact_Front") : FName("HitReact_Back");
-	}
-	else
-	{
-		return (R >= 0.f) ? FName("HitReact_Right") : FName("HitReact_Left");
-	}
-}
-
 void AAFPlayerCharacter::TriggerHitReact_FromAttacker(AActor* Attacker)
 {
-	// 멀티 기준: 서버에서만 결정
 	if (!HasAuthority()) return;
-	if (!HitReactMontage) return;
 	if (bIsHit) return;
 
-	bIsHit = true;
+	const EAFHitDir Dir = CalcHitDir(Attacker);
 
-	const FName Section = CalcHitReactSection(Attacker);
-	Multicast_PlayHitReact(Section);
+	bIsHit = true;
+	Multicast_PlayHitReact(Dir);
 }
 
 void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float RotationOffset)
@@ -820,13 +795,50 @@ bool AAFPlayerCharacter::IsAlly(AActor* InTargetActor)
 	return false;
 }
 
-void AAFPlayerCharacter::Multicast_PlayHitReact_Implementation(FName SectionName)
+void AAFPlayerCharacter::Multicast_PlayHitReact_Implementation(EAFHitDir Dir)
 {
-	if (!HitReactMontage) return;
+	TObjectPtr<UAnimMontage> Montage = nullptr;
 
-	// 여기서 "피격 시 공격 끊기" 원하면 아래 2줄 중 하나 선택
-	// bIsAttacking = false;
-	// if (UAnimInstance* Anim = GetMesh()->GetAnimInstance()) Anim->StopAllMontages(0.05f);
+	switch (Dir)
+	{
+	case EAFHitDir::Front: Montage = HitReactMontage_Front; break;
+	case EAFHitDir::Back:  Montage = HitReactMontage_Back;  break;
+	case EAFHitDir::Left:  Montage = HitReactMontage_Left;  break;
+	case EAFHitDir::Right: Montage = HitReactMontage_Right; break;
+	}
 
-	PlayAnimMontage(HitReactMontage, 1.f, SectionName);
+	if (!Montage) return;
+
+	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		Anim->StopAllMontages(0.05f); // 맞으면 스킬/공격 끊기
+	}
+
+	bIsUsingSkill = false;
+	bIsAttacking = false;
+	bIsHeavyAttacking = false;
+
+	UnlockMovement();
+
+	PlayAnimMontage(Montage.Get(), 1.f);
+}
+
+EAFHitDir AAFPlayerCharacter::CalcHitDir(AActor* Attacker) const
+{
+	if (!Attacker) return EAFHitDir::Front;
+
+	FVector Dir = Attacker->GetActorLocation() - GetActorLocation(); // 공격자 - 피해자
+	Dir.Z = 0.f;
+
+	if (Dir.IsNearlyZero()) return EAFHitDir::Front;
+	Dir.Normalize();
+
+	const float F = FVector::DotProduct(GetActorForwardVector(), Dir);
+	const float R = FVector::DotProduct(GetActorRightVector(), Dir);
+
+	if (FMath::Abs(F) >= FMath::Abs(R))
+	{
+		return (F >= 0.f) ? EAFHitDir::Front : EAFHitDir::Back;
+	}
+	return (R >= 0.f) ? EAFHitDir::Right : EAFHitDir::Left;
 }
