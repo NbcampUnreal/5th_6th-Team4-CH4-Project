@@ -27,6 +27,9 @@ protected:
 	//사망 상태 플래그
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Attribute")
 	bool bIsDead = false;
+	
+public:
+	bool IsDead() const { return bIsDead; }
 
 public:
 	void ApplyDamage(float Damage, AController* InstigatedBy);

@@ -2,10 +2,14 @@
 
 
 #include "Components/AFAttributeComponent.h"
+
+#include "Character/AFPlayerCharacter.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "Player/AFPlayerState.h"
 #include "Game/AFGameMode.h"
+
+class AAFPlayerCharacter;
 
 UAFAttributeComponent::UAFAttributeComponent()
 {
@@ -108,6 +112,11 @@ void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
 
 	UE_LOG(LogTemp, Warning, TEXT("[%s] is Dead"), *OwnerActor->GetName());
 
+	if (AAFPlayerCharacter* PC = Cast<AAFPlayerCharacter>(OwnerActor))
+	{
+		PC->OnDeath(); 
+	}
+
 	if (APawn* PawnOwner = Cast<APawn>(OwnerActor))
 	{
 		AController* VictimController = PawnOwner->GetController();
@@ -157,5 +166,6 @@ void UAFAttributeComponent::SyncHealthToPlayerState()
 		);
 	}
 }
+
 
 

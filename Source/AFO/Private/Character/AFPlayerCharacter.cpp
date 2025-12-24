@@ -11,13 +11,15 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Engine/OverlapResult.h"
 #include "Animation/AnimInstance.h"
+#include "Components/AFStatusEffectComponent.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
 	AttributeComp = CreateDefaultSubobject<UAFAttributeComponent>(TEXT("AttributeComponent"));
-
+	StatusEffectComp = CreateDefaultSubobject<UAFStatusEffectComponent>(TEXT("StatusEffectComponent"));
+ 
 	NormalSpeed = 400.f;
 	SprintSpeedMultiplier = 1.5f;
 	SprintSpeed = NormalSpeed * SprintSpeedMultiplier;
@@ -572,6 +574,15 @@ void AAFPlayerCharacter::DealDamage()
 					Attr->ApplyDamage(20.f, GetController());
 					UE_LOG(LogTemp, Error, TEXT("!!! [DAMAGE SUCCESS] Target: %s !!!"), *HitActor->GetName());
 				}
+				// 공격 적중 시 슬로우 적용(서버에서만)
+				UAFStatusEffectComponent* StatusComp = HitActor->FindComponentByClass<UAFStatusEffectComponent>();
+
+				if (StatusComp)
+				{
+					// 슬로우 20%, 0.5초
+					StatusComp->ApplySlow(0.8f, 0.5f);
+				}
+
 			}
 		}
 	}
@@ -640,6 +651,29 @@ void AAFPlayerCharacter::UnlockMovement()
 		C->SetIgnoreMoveInput(false);
 	}
 }
+
+void AAFPlayerCharacter::OnDeath()
+{
+	if (!HasAuthority()) return;
+
+	// 이동, 입력 전부 차단
+	LockMovement();
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->DisableMovement();
+	}
+
+	// 사망 애니메이션 재생 (모든 클라 동기화)
+	if (DeathMontage)
+	{
+		PlayAnimMontage(DeathMontage);
+	}
+
+	LockMovement();
+}
+
 
 void AAFPlayerCharacter::OnRep_PlayerState()
 {
@@ -771,3 +805,4 @@ bool AAFPlayerCharacter::IsAlly(AActor* InTargetActor)
 
 	return false;
 }
+

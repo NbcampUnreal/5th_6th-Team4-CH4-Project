@@ -10,6 +10,8 @@ class UCameraComponent;
 class UAnimMontage;
 struct FInputActionValue;
 class UAFAttributeComponent;
+class UAFStatusEffectComponent;
+
 
 UCLASS()
 class AFO_API AAFPlayerCharacter : public ACharacter
@@ -108,6 +110,20 @@ protected:
 	
 	bool bIsHeavyAttacking = false;
 
+	// AFPlayerCharacter.h
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
+	UAFStatusEffectComponent* StatusEffectComp;
+
+	// 사망 처리
+public:
+	void OnDeath();
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	UAnimMontage* DeathMontage;
+
+
+
 public:
 	void Attack();
 
@@ -141,6 +157,8 @@ private:
 protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
+
+	
 	
 	// 스프린트 입력 상태(누르고 있는지)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
