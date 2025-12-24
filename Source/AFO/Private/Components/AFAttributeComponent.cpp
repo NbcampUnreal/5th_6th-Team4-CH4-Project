@@ -126,7 +126,7 @@ void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
 		{
 			GM->HandlePlayerDeath(VictimController, InstigatedBy);
 		}
-	}
+	} 
 }
 
 

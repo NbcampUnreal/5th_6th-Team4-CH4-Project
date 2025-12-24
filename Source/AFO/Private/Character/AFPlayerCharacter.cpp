@@ -636,7 +636,7 @@ void AAFPlayerCharacter::LockMovement()
 	}
 
 	// 입력으로 인한 이동만 막기(몽타주 루트모션은 필요하면 유지 가능)
-	if (AController* C = GetController())
+	if (AController* C = GetController()) 
 	{
 		C->SetIgnoreMoveInput(true);
 	}

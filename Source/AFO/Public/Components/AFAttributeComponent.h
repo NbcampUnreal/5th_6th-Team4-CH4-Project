@@ -28,7 +28,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Attribute")
 	bool bIsDead = false;
 	
-public:
+public: 
 	bool IsDead() const { return bIsDead; }
 
 public:
