@@ -1,0 +1,220 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Character.h"
+#include "InputAction.h"
+#include "AFPlayerCharacter.generated.h"
+
+class USpringArmComponent;
+class UCameraComponent;
+class UAnimMontage;
+struct FInputActionValue;
+class UAFAttributeComponent;
+class UAFStatusEffectComponent;
+
+
+UCLASS()
+class AFO_API AAFPlayerCharacter : public ACharacter
+{
+	GENERATED_BODY()
+
+public:
+	AAFPlayerCharacter();
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	UFUNCTION(Server, Reliable)
+	void ServerRPC_SkillE();
+	UFUNCTION(Server, Reliable)
+	void ServerRPC_SkillQ();
+
+protected:
+	virtual void BeginPlay() override;
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	UFUNCTION()
+	void Move(const FInputActionValue& value);          // 이동구현 앞뒤좌우
+	UFUNCTION()
+	void StartJump(const FInputActionValue& value);     // 점프 시작
+	UFUNCTION()
+	void StopJump(const FInputActionValue& value);      // 점프 종료
+	UFUNCTION()
+	void Look(const FInputActionValue& value);          // 마우스 시야회전
+	UFUNCTION()
+	virtual void StartSprint(const FInputActionValue& Value);
+	UFUNCTION()
+	virtual void StopSprint(const FInputActionValue& Value);
+
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
+	bool bIsAttacking = false;
+	UFUNCTION()
+	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	// W : Forward Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Directional Speed")
+	float ForwardSpeed = 1.0f;
+
+	// S : Backward Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Directional Speed")
+	float BackwardSpeed = 0.65f;
+
+	// D : Right Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Directional Speed")
+	float RightSpeed = 0.72f;
+
+	// A : Left Speed
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement|Directional Speed")
+	float LeftSpeed = 0.72f;
+
+	// W / S 방향 (카메라 기준 Forward)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement|Directional Vectors")
+	FVector ForwardDir = FVector::ZeroVector;
+
+	// A / D 방향 (카메라 기준 Right)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement|Directional Vectors")
+	FVector RightDir = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float NormalSpeed = 300.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float SprintSpeedMultiplier = 1.5f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+	float SprintSpeed;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
+	bool bCanSprint = true;
+
+	// Skill Montages
+	UPROPERTY(EditAnywhere, Category = "Skill")
+	UAnimMontage* SkillEMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Skill")
+	UAnimMontage* SkillQMontage;
+	
+	// Mana Cost
+	UPROPERTY(EditAnywhere, Category = "Skill")
+	float SkillEManaCost = 30.f;
+
+	UPROPERTY(EditAnywhere, Category = "Skill")
+	float SkillQManaCost = 80.f;
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
+	bool bIsUsingSkill = false;
+	
+	// Attack
+	
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	UAnimMontage* HeavyAttackMontage;
+	
+	void InputHeavyAttack(const FInputActionValue& InValue);
+	
+	bool bIsHeavyAttacking = false;
+
+	// AFPlayerCharacter.h
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
+	UAFStatusEffectComponent* StatusEffectComp;
+
+	// 사망 처리
+public:
+	void OnDeath();
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	UAnimMontage* DeathMontage;
+
+
+
+public:
+	void Attack();
+
+	UFUNCTION()
+	void DealDamage();
+
+	UFUNCTION()
+	void HandleOnCheckHit();
+
+	UFUNCTION()
+	void HandleOnCheckInputAttack();
+
+	virtual void BeginAttack();
+
+	UFUNCTION()
+	virtual void EndAttack(UAnimMontage* InMontage, bool bInterruped);
+	
+	void HandleOnCheckInputAttack_FromNotify(UAnimInstance* Anim);
+
+private:
+	UPROPERTY(VisibleAnywhere)
+	USpringArmComponent* SpringArm;
+	UPROPERTY(VisibleAnywhere)
+	UCameraComponent* Camera;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	UAnimMontage* AttackMontage;
+
+	void InputAttackMelee(const FInputActionValue& InValue);
+
+protected:
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Component")
+	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
+
+	
+	
+	// 스프린트 입력 상태(누르고 있는지)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
+	bool bSprintHeld = false;
+
+	// 실제 이동 중인지(입력/속도 기반)
+	bool IsActuallyMoving() const;
+
+	FString AttackAnimMontageSectionPrefix = FString(TEXT("Attack"));
+
+	int32 MaxComboCount = 3;
+
+	int32 CurrentComboCount = 0;
+
+	bool bIsNowAttacking = false;
+
+	bool bIsAttackKeyPressed = false;
+
+	FOnMontageEnded OnMeleeAttackMontageEndedDelegate;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlaySkillEMontage();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlaySkillQMontage();
+	
+	// 이동 잠금
+	bool bMovementLocked = false;
+
+	void LockMovement();
+	void UnlockMovement();
+
+
+
+	// 서버로 공격 요청을 보내는 함수 (클라이언트에서 호출)
+	UFUNCTION(Server, Reliable)
+	void ServerAttackRequest();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayAttackMontage();
+
+	virtual void OnRep_PlayerState() override;
+
+
+	// 콤보 서버 함수
+	UFUNCTION(Server, Reliable)
+	void Server_DoComboAttack();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayComboSection(int32 ComboCount);
+
+	// 스킬 범위 함수
+	UFUNCTION()
+	void HandleSkillHitCheck(float Radius, float Damage, float RotationOffset = 0.f);
+
+	protected:
+		// 아군인지 확인하는 함수
+		bool IsAlly(AActor* InTargetActor);
+
+};
