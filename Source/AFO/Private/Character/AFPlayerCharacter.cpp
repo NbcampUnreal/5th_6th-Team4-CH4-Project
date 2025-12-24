@@ -11,6 +11,10 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Engine/OverlapResult.h"
 #include "Animation/AnimInstance.h"
+#include "UI/AFHealthBarWidget.h"
+#include "Blueprint/UserWidget.h"
+#include <Components/WidgetComponent.h>
+#include "Gimmick/AFBuffItem.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
@@ -124,6 +128,29 @@ void AAFPlayerCharacter::BeginPlay()
 	{
 		AnimInstance->OnMontageEnded.AddDynamic(this, &AAFPlayerCharacter::OnAttackMontageEnded);
 	}
+
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		// 1. 위젯 컴포넌트 찾기 (이름으로 찾거나 클래스로 찾기)
+		UWidgetComponent* HPBarComp = FindComponentByClass<UWidgetComponent>();
+		if (HPBarComp)
+		{
+			// 2. 생성된 위젯 인스턴스를 우리 C++ 클래스로 캐스팅
+			UAFHealthBarWidget* HPWidget = Cast<UAFHealthBarWidget>(HPBarComp->GetUserWidgetObject());
+			if (HPWidget)
+			{
+				// 3. ★ 여기서 깨워줘야 타이머가 돌기 시작합니다!
+				HPWidget->BindToCharacter(this);
+				UE_LOG(LogTemp, Warning, TEXT("[Character] Success: BindToCharacter called for %s"), *GetName());
+			}
+			else
+			{
+				// 캐스팅 실패 시 로그 (부모 클래스 설정 확인용)
+				UE_LOG(LogTemp, Error, TEXT("[Character] Failed to Cast Widget for %s! Check Parent Class."), *GetName());
+			}
+		}
+	}
+
 }
 
 void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -842,3 +869,8 @@ EAFHitDir AAFPlayerCharacter::CalcHitDir(AActor* Attacker) const
 	}
 	return (R >= 0.f) ? EAFHitDir::Right : EAFHitDir::Left;
 }
+
+
+
+
+

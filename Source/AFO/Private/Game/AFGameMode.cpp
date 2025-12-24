@@ -231,10 +231,10 @@ void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* 
 
 	VictimPS->IncrementDeathCount();
 	VictimPS->SetDead(true);
+	AAFPlayerState* KillerPS = KillerController->GetPlayerState<AAFPlayerState>();
 
 	if (KillerController && KillerController != VictimController)
 	{
-		if (AAFPlayerState* KillerPS = KillerController->GetPlayerState<AAFPlayerState>())
 		{
 			KillerPS->IncrementKillCount();
 		}
@@ -247,6 +247,38 @@ void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* 
 		Pawn->DetachFromControllerPendingDestroy();
 		Pawn->Destroy();
 	}
+
+	// kill log
+	if (VictimPS)
+	{
+		// 1. 이름 및 색상 정보 준비
+		FString KillerName = KillerPS ? KillerPS->GetPlayerName() : TEXT("Environment");
+		FString VictimName = VictimPS->GetPlayerName();
+
+		// 팀 ID에 따른 색상 (0: Red, 1: Blue)
+		FLinearColor KillerColor = (KillerPS && KillerPS->GetTeamID() == 0) ? FLinearColor::Red : FLinearColor::Blue;
+		FLinearColor VictimColor = (VictimPS->GetTeamID() == 0) ? FLinearColor::Red : FLinearColor::Blue;
+
+		// 자살(Fall Death 등)일 경우 Killer를 Environment나 본인 이름으로 처리
+		if (KillerController == VictimController || KillerController == nullptr)
+		{
+			KillerName = TEXT("System");
+			KillerColor = FLinearColor::Gray;
+		}
+
+		// 2. 모든 접속 중인 플레이어에게 킬 로그 브로드캐스트
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+		{
+			if (AAFPlayerController* PC = Cast<AAFPlayerController>(It->Get()))
+			{
+				// 각 클라이언트의 RPC 함수 호출!
+				PC->Client_ShowKillLog(KillerName, KillerColor, VictimName, VictimColor);
+			}
+		}
+	}
+
+
+
 
 	// 리스폰 위젯 띄우기
 	if (AAFPlayerController* PC = Cast<AAFPlayerController>(VictimController))

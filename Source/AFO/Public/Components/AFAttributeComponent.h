@@ -46,4 +46,12 @@ private:
 	FTimerHandle HealthSyncTimerHandle;
 
 
+
+
+
+	// Floating Damage
+protected:
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_NotifyDamage(float Damage, FVector Location, AController* InstigatedBy, bool bIsCritical);
+
 };

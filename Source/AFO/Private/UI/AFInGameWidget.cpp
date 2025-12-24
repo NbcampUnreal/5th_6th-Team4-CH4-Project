@@ -9,6 +9,7 @@
 #include "AFO/Public/Player/AFPlayerState.h"
 #include "GameFramework/PlayerController.h"
 #include "AFO/Public/Components/AFAttributeComponent.h"
+#include "Player/AFPlayerController.h"
 
 
 // ====================
@@ -411,6 +412,8 @@ void UAFInGameWidget::UpdateGameTimerText(int32 NewTime)
 void UAFInGameWidget::ShowGameResult()
 {
 	APlayerController* PC = GetOwningPlayer();
+	AAFPlayerController* AFPC = Cast<AAFPlayerController>(PC);
+	if (!AFPC) return;
 	AAFPlayerState* MyPS = PC ? PC->GetPlayerState<AAFPlayerState>() : nullptr;
 	if (!MyPS) return;
 
@@ -418,18 +421,32 @@ void UAFInGameWidget::ShowGameResult()
 	// 내 팀 확인 및 승패 판정
 	uint8 MyTeam = MyPS->GetTeamID();
 	bool bIWin = false;
+	bool bIsDraw = (BlueTotalKills == RedTotalKills);
 
-	if (RedTotalKills > BlueTotalKills) bIWin = (MyTeam == 0);
-	else if (BlueTotalKills > RedTotalKills) bIWin = (MyTeam == 1);
-	// Draw 처리는 보류하셨으니 생략
+	if (!bIsDraw)
+	{
+		if (RedTotalKills > BlueTotalKills) bIWin = (MyTeam == 0);
+		else bIWin = (MyTeam == 1);
+	}
 
 	// 3. 위젯 생성 및 출력
-	TSubclassOf<UUserWidget> ResultClass = bIWin ? VictoryWidgetClass : LoseWidgetClass;
+	TSubclassOf<UUserWidget> ResultClass = nullptr;
+
+	if (bIsDraw)
+	{
+		ResultClass = DrawWidgetClass;
+	}
+	else
+	{
+		ResultClass = bIWin ? VictoryWidgetClass : LoseWidgetClass;
+	}
+	
 	if (ResultClass)
 	{
 		UUserWidget* ResultWidget = CreateWidget<UUserWidget>(GetWorld(), ResultClass);
 		if (ResultWidget)
 		{
+			AFPC->Client_ClearRespawnWidget();
 			ResultWidget->AddToViewport();
 		}
 	}

@@ -11,6 +11,7 @@ class UAnimMontage;
 struct FInputActionValue;
 class UAFAttributeComponent;
 
+
 UENUM(BlueprintType)
 enum class EAFHitDir : uint8
 {
@@ -224,5 +225,7 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayHitReact(EAFHitDir Dir);
 	EAFHitDir CalcHitDir(AActor* Attacker) const;
+
+
 
 };

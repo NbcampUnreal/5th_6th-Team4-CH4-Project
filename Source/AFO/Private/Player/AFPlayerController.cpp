@@ -3,6 +3,7 @@
 #include "UI/AFESCWidget.h"
 #include "UI/AFInGameWidget.h"
 #include "UI/AFRespawnWidget.h"
+#include "UI/AFKillLogContainer.h"
 #include "EnhancedInputComponent.h"
 
 
@@ -85,6 +86,19 @@ void AAFPlayerController::BeginPlay()
 				UE_LOG(LogTemp, Error, TEXT("ESCWidget ���� ����!"));
 			}
 		}
+
+
+		if (IsLocalController() && KillLogContainerClass)
+		{
+			KillLogContainer = CreateWidget<UAFKillLogContainer>(this, KillLogContainerClass);
+			if (KillLogContainer)
+			{
+				KillLogContainer->AddToViewport();
+				UE_LOG(LogTemp, Error, TEXT("kill log container init!"));
+			}
+		}
+
+
 	}
 
 
@@ -146,5 +160,14 @@ void AAFPlayerController::Client_ClearRespawnWidget_Implementation()
 	{
 		CurrentRespawnWidget->RemoveFromParent();
 		CurrentRespawnWidget = nullptr;
+	}
+}
+
+void AAFPlayerController::Client_ShowKillLog_Implementation(const FString& KillerName, FLinearColor KillerColor, const FString& VictimName, FLinearColor VictimColor)
+{
+	if (KillLogContainer)
+	{
+		KillLogContainer->AddKillLog(KillerName, KillerColor, VictimName, VictimColor);
+		UE_LOG(LogTemp, Error, TEXT("Add kill log init!"));
 	}
 }

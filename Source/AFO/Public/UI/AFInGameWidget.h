@@ -148,6 +148,9 @@ protected:
 		UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
 		TSubclassOf<UUserWidget> LoseWidgetClass;
 
+		UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
+		TSubclassOf<UUserWidget> DrawWidgetClass;
+
 		UFUNCTION()
 		void ShowGameResult();
 
