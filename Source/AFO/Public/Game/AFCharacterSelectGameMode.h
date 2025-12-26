@@ -40,7 +40,7 @@ private:
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Travel")
-	FString BattleZoneURL = TEXT("AFOBattleZone?listen");
+	FString BattleZoneURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOBattleZone");
 
 	UPROPERTY(EditDefaultsOnly, Category = "Character")
 	TArray<FAFCharacterOption> CharacterOptions;

@@ -3,6 +3,7 @@
 #include "Player/AFPlayerState.h"
 #include "Engine/World.h"
 #include "GameFramework/GameState.h"
+#include "Controller/AFLobbyPlayerController.h"
 
 AAFTeamSelectGameMode::AAFTeamSelectGameMode()
 {
@@ -10,6 +11,9 @@ AAFTeamSelectGameMode::AAFTeamSelectGameMode()
 	bStartPlayersAsSpectators = true;
 
 	GameStateClass = AAFLobbyGameState::StaticClass();
+	PlayerStateClass = AAFPlayerState::StaticClass();
+
+	PlayerControllerClass = AAFLobbyPlayerController::StaticClass();
 }
 
 void AAFTeamSelectGameMode::PostLogin(APlayerController* NewPlayer)
@@ -135,6 +139,6 @@ bool AAFTeamSelectGameMode::AdvanceToCharacterSelect()
 
 	if (!GetWorld()) return false;
 
-	GetWorld()->ServerTravel(*CharacterSelectMapURL);
+	GetWorld()->ServerTravel(CharacterSelectMapURL, true);
 	return true;
 }
