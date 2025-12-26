@@ -37,6 +37,34 @@ void AAFPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AAFPlayerState, bReady);
 }
 
+void AAFPlayerState::CopyProperties(APlayerState* PlayerState)
+{
+	Super::CopyProperties(PlayerState);
+
+	if (AAFPlayerState* NewPS = Cast<AAFPlayerState>(PlayerState))
+	{
+		NewPS->TeamID = TeamID;
+		NewPS->TeamIndex = TeamIndex;
+		NewPS->SelectedCharacterId = SelectedCharacterId;
+		NewPS->bReady = bReady;
+		UE_LOG(LogTemp, Warning, TEXT("CopyProperties: OldTeam=%d -> NewPS Team Set!"), TeamID);
+	}
+}
+
+void AAFPlayerState::OverrideWith(APlayerState* PlayerState)
+{
+	Super::OverrideWith(PlayerState);
+
+	if (AAFPlayerState* OldPS = Cast<AAFPlayerState>(PlayerState))
+	{
+		TeamID = OldPS->TeamID;
+		TeamIndex = OldPS->TeamIndex;
+
+		SelectedCharacterId = OldPS->SelectedCharacterId;
+		bReady = OldPS->bReady;
+	}
+}
+
 // =========================
 // OnRep 함수 구현
 // =========================
@@ -131,6 +159,8 @@ void AAFPlayerState::IncrementDeathCount()
 
 void AAFPlayerState::OnRep_TeamInfo()
 {
+	OnTeamInfoChanged.Broadcast(this);
+
 	if (UWorld* World = GetWorld())
 	{
 		if (AAFLobbyGameState* LGS = World->GetGameState<AAFLobbyGameState>())

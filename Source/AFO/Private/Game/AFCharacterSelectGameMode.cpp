@@ -3,6 +3,7 @@
 #include "Player/AFPlayerState.h"
 #include "Engine/World.h"
 #include "GameFramework/GameState.h"
+#include "Controller/AFLobbyPlayerController.h"
 
 AAFCharacterSelectGameMode::AAFCharacterSelectGameMode()
 {
@@ -10,6 +11,8 @@ AAFCharacterSelectGameMode::AAFCharacterSelectGameMode()
 	bStartPlayersAsSpectators = true;
 
 	GameStateClass = AAFLobbyGameState::StaticClass();
+	PlayerStateClass = AAFPlayerState::StaticClass();
+	PlayerControllerClass = AAFLobbyPlayerController::StaticClass();
 
 	CharacterOptions =
 	{
@@ -105,5 +108,5 @@ void AAFCharacterSelectGameMode::TryStartBattle()
 {
 	if (!IsAllPickedAndReady()) return;
 
-	GetWorld()->ServerTravel(*BattleZoneURL);
+	GetWorld()->ServerTravel(BattleZoneURL, true);
 }

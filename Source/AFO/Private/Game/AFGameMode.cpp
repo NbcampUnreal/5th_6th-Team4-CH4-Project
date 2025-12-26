@@ -348,7 +348,34 @@ void AAFGameMode::EndRound()
 	}
 }
 
+UClass* AAFGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
+{
+	AAFPlayerState* PS = InController ? InController->GetPlayerState<AAFPlayerState>() : nullptr;
+	if (PS)
+	{
+		const uint8 CharId = PS->GetSelectedCharacterId();
+		if (PS->HasSelectedCharacter()
+			&& CharacterPawnClasses.IsValidIndex(CharId)
+			&& CharacterPawnClasses[CharId])
+		{
+			return CharacterPawnClasses[CharId];
+		}
+	}
+	return Super::GetDefaultPawnClassForController_Implementation(InController);
+}
 
+void AAFGameMode::HandleSeamlessTravelPlayer(AController*& C)
+{
+	Super::HandleSeamlessTravelPlayer(C);
+	if (!C) return;
+
+	if (APawn* OldPawn = C->GetPawn())
+	{
+		OldPawn->Destroy();
+	}
+
+	RestartPlayer(C); // 여기서 위 GetDefaultPawnClassForController가 적용됨
+}
 
 //// 캐릭터 선택 화면 구현 전 임시 캐릭터 설정 함수
 //UClass* AAFGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)

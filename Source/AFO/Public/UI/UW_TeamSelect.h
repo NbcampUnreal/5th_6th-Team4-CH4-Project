@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Player/AFPlayerState.h"
 #include "UW_TeamSelect.generated.h"
 
 class UButton;
@@ -28,16 +29,18 @@ protected:
 	UFUNCTION()
 	void RefreshUI();
 
-	// [추가] 팀 리스트 문자열 만들기(람다 제거용)
+	UFUNCTION()
+	void OnAnyPlayerTeamChanged(AAFPlayerState* ChangedPS);
+
 	FString BuildTeamList(uint8 TeamId) const;
 
-	// [유지] 팀 패널 갱신(여기서만 Red/Blue Count/List를 세팅하도록 통일)
+
 	void RebuildTeamLists();
 
-	// [선택] 디버그용 전체 리스트(원하면 남기고, 싫으면 RefreshUI에서 호출 제거)
+
 	void RebuildPlayerList();
 
-	// [유지] GameState 바인딩 재시도
+
 	void TryBindGameState();
 
 private:

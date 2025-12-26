@@ -12,6 +12,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnHealthManaChanged, float, Curr
 // 킬/데스 변경 델리게이트
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStatCountChanged, int32, NewValue, class AAFPlayerState*, ChangedPlayer);
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTeamInfoChanged, AAFPlayerState*, ChangedPlayer);
+
 UCLASS()
 class AFO_API AAFPlayerState : public APlayerState
 {
@@ -21,10 +23,12 @@ public:
 	AAFPlayerState();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void CopyProperties(APlayerState* PlayerState) override;
+	virtual void OverrideWith(APlayerState* PlayerState) override;
 
-	//  ==============================
-	//  복제변수
-	// ==============================
+	UPROPERTY(BlueprintAssignable)
+	FOnTeamInfoChanged OnTeamInfoChanged;
+
 protected:
 	UPROPERTY(Replicated)
 	float MaxHealth;
@@ -45,10 +49,11 @@ protected:
 	int32 DeathCount;
 
 	UPROPERTY(ReplicatedUsing = OnRep_TeamInfo)
-	uint8 TeamID;  	// 팀 정보 ( 0: RED, 1: BLUE)
+	uint8 TeamID;
 
-	UPROPERTY(Replicated)
-	uint8 TeamIndex; 	// 팀 내 인덱스
+	UPROPERTY(ReplicatedUsing = OnRep_TeamInfo)
+	uint8 TeamIndex;
+
 
 	UFUNCTION()
 	void OnRep_TeamInfo();
@@ -57,14 +62,11 @@ protected:
 	bool bIsDead = false;
 
 	UPROPERTY(ReplicatedUsing = OnRep_SelectedCharacter) 
-	uint8 SelectedCharacterId = 255; // 255=미선택
+	uint8 SelectedCharacterId = 255;
 
 	UPROPERTY(ReplicatedUsing = OnRep_Ready)
 	bool bReady = false;
 
-//  ===============================
-//  OnRep 함수
-// ================================
 	UFUNCTION()
 	void OnRep_CurrentHealth();
 	UFUNCTION()

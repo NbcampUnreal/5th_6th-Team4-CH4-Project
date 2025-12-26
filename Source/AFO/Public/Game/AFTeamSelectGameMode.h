@@ -25,5 +25,5 @@ private:
 	void UpdateLobbyCounts();
 
 	UPROPERTY(EditDefaultsOnly, Category = "Travel")
-	FString CharacterSelectMapURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOCharacterSelectMap?listen");
+	FString CharacterSelectMapURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOCharacterSelectMap");
 };

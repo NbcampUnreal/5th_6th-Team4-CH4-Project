@@ -1,5 +1,3 @@
-// AFLobbyPlayerController.h
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -16,11 +14,8 @@ class AFO_API AAFLobbyPlayerController : public APlayerController
 
 public:
 	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
 	virtual void PostSeamlessTravel() override;
 	virtual void BeginPlayingState() override;
-	virtual void ReceivedPlayer() override;
 
 	UFUNCTION(Server, Reliable)
 	void ServerRequestSetTeam(uint8 NewTeamId);
@@ -29,7 +24,7 @@ public:
 	void ServerRequestAdvanceToCharacterSelect();
 
 	UFUNCTION(Server, Reliable)
-	void ServerRequestSelectCharacter(uint8 CharacterId);
+	void ServerRequestSelectCharacter(uint8 CharacterId); // 0~3
 
 	UFUNCTION(Server, Reliable)
 	void ServerRequestSetReady(bool bNewReady);
@@ -38,11 +33,11 @@ public:
 	void ClientShowMessage(const FString& Msg);
 
 private:
-	void EnsureUI();
 	void SetupUIForCurrentMap();
 	void ClearCurrentUI();
 	void SetUIInputMode(bool bUIOnly);
 	void HandlePostLoadMap(UWorld* LoadedWorld);
+
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
@@ -51,10 +46,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UUserWidget> CharacterSelectWidgetClass;
 
-	UPROPERTY(Transient)
+	UPROPERTY()
 	TObjectPtr<UUserWidget> CurrentWidget;
-
-private:
-	FDelegateHandle PostLoadMapHandle;
-	FTimerHandle EnsureUITimer;
 };
