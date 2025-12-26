@@ -5,6 +5,7 @@
 #include "InputAction.h"
 #include "AFPlayerCharacter.generated.h"
 
+class UAFStatusEffectComponent;
 class USpringArmComponent;
 class UCameraComponent;
 class UAnimMontage;
@@ -168,6 +169,9 @@ private:
 protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
+	UAFStatusEffectComponent* StatusEffectComp; //캐릭터 스킬 효과 관리 component
 	
 	// 스프린트 입력 상태(누르고 있는지)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
@@ -226,6 +230,6 @@ protected:
 	void Multicast_PlayHitReact(EAFHitDir Dir);
 	EAFHitDir CalcHitDir(AActor* Attacker) const;
 
-
-
+	// AFPlayerCharacter.h
+	
 };

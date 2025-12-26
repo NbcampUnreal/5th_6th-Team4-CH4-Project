@@ -14,6 +14,8 @@
 #include "UI/AFHealthBarWidget.h"
 #include "Blueprint/UserWidget.h"
 #include <Components/WidgetComponent.h>
+
+#include "Components/AFStatusEffectComponent.h"
 #include "Gimmick/AFBuffItem.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
@@ -21,6 +23,7 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 	PrimaryActorTick.bCanEverTick = false;
 
 	AttributeComp = CreateDefaultSubobject<UAFAttributeComponent>(TEXT("AttributeComponent"));
+	StatusEffectComp = CreateDefaultSubobject<UAFStatusEffectComponent>(TEXT("StatusEffectComponent"));
 
 	NormalSpeed = 400.f;
 	SprintSpeedMultiplier = 1.5f;
@@ -778,7 +781,7 @@ void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float R
 		Params
 	);
 	
-	if (bHit)
+	if (bHit) return;
 	{
 		for (auto& Result : OverlapResults)
 		{
@@ -798,6 +801,11 @@ void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float R
 				if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
 				{
 					Victim->TriggerHitReact_FromAttacker(this);
+				}
+				// 슬로우 적용 
+				if (UAFStatusEffectComponent* StatusComp = HitActor->FindComponentByClass<UAFStatusEffectComponent>())
+				{
+					StatusComp->ApplySlow(0.2f, 0.5f);
 				}
 			}
 		}
