@@ -20,40 +20,22 @@ void UAFInGameWidget::NativeConstruct()
 {
 	UUserWidget::NativeConstruct();
 
-	if (GameTimer)
+	// 1. 타이머 텍스트 초기화
+	if (GameTimer) GameTimer->SetText(FText::FromString("Wait..."));
+
+	AAFGameState* GS = Cast<AAFGameState>(GetWorld()->GetGameState());
+	if (GS)
 	{
-		GameTimer->SetText(FText::FromString("Wait..."));
+		// 2. 타이머 델리게이트 연결
+		UpdateGameTimerText(GS->RemainingTimeSeconds);
+		GS->OnTimerChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateGameTimerText);
+
+		// 3. 점수/플레이어 배열 변화 델리게이트 연결 (AddUniqueDynamic 필수)
+		GS->OnPlayerArrayChanged.AddUniqueDynamic(this, &UAFInGameWidget::HandlePlayerArrayChanged);
+
+		// 4. 초기 바인딩 시도 (한 번만 수행)
+		HandlePlayerArrayChanged();
 	}
-
-	// GameState를 찾아서 델리게이트 구독
-	AAFGameState* GameState = Cast<AAFGameState>(GetWorld()->GetGameState());
-	if (IsValid(GameState))
-	{
-		// 1. 이미 진행 중인 시간이 있을 수 있으므로 현재 시간으로 즉시 업데이트
-		UpdateGameTimerText(GameState->RemainingTimeSeconds);
-
-		// 2. 앞으로 변할 때마다 호출되도록 바인딩
-		GameState->OnTimerChanged.AddDynamic(this, &UAFInGameWidget::UpdateGameTimerText);
-
-		GetWorld()->GetTimerManager().SetTimer(InitTimerHandle, this, &UAFInGameWidget::CheckAndInitializeUI, 0.5f, true);
-	}
-
-
-	
-	if (AGameStateBase* GS = GetWorld()->GetGameState())
-	{
-		if (AAFGameState* AFGS = Cast<AAFGameState>(GS))
-		{
-			// GameState의 RepNotify 이벤트에 바인딩
-			AFGS->OnPlayerArrayChanged.AddDynamic(this, &UAFInGameWidget::HandlePlayerArrayChanged);
-
-			// 처음 한 번은 즉시 초기화를 시도
-			HandlePlayerArrayChanged();
-		}
-	}
-
-	
-
 }
 
 void UAFInGameWidget::HandlePlayerArrayChanged()
@@ -64,6 +46,7 @@ void UAFInGameWidget::HandlePlayerArrayChanged()
 	// 현재 접속 중인 모든 플레이어를 대상으로 초기화 시도
 	// bTeamUIInitialized 체크를 제거하고 내부에서 개별 플레이어별로 체크합니다.
 	InitializeTeamUI(GS->PlayerArray);
+	UpdateTeamKillDeathScore(0, nullptr);
 }
 
 void UAFInGameWidget::CheckAndInitializeUI()
@@ -179,8 +162,8 @@ void UAFInGameWidget::InitializeTeamUI(TArray<APlayerState*> AllPlayerStates)
 		AFPS->OnDeathCountChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdatePlayerDeathCount);
 
 		// C. 팀 총합 스코어 바인딩
-		AFPS->OnKillCountChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateTeamKillDeathScore);
-		AFPS->OnDeathCountChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateTeamKillDeathScore);
+		// AFPS->OnKillCountChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateTeamKillDeathScore);
+		// AFPS->OnDeathCountChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateTeamKillDeathScore);
 
 		// 초기값 즉시 반영
 		UpdatePlayerHealthBar(AFPS->GetCurrentHealth(), AFPS->GetMaxHealth(), AFPS);
@@ -301,40 +284,19 @@ void UAFInGameWidget::UpdatePlayerDeathCount(int32 NewDeathCount, AAFPlayerState
 // 팀 총합 스코어 갱신 핸들러
 void UAFInGameWidget::UpdateTeamKillDeathScore(int32 NewValue, AAFPlayerState* TargetPS)
 {
+	AAFGameState* GS = Cast<AAFGameState>(GetWorld()->GetGameState());
+	if (!GS) return;
 
-	RedTotalKills = 0;
-	RedTotalDeaths = 0;
-	BlueTotalKills = 0;
-	BlueTotalDeaths = 0;
+	// ★ 클라이언트 로그: 현재 내 화면의 이름과 서버에서 받은 실제 점수를 출력
+	FString ClientName = GetOwningPlayer() ? GetOwningPlayer()->GetName() : TEXT("Unknown");
 
-	// Map을 순회하며 팀별 총합을 계산
-	for (const auto& Elem : TeamPlayerStates)
-	{
-		uint8 TeamID = Elem.Key;
-		const TArray<AAFPlayerState*>& TeamMembers = Elem.Value;
+	UE_LOG(LogTemp, Log, TEXT("[CLIENT:%s] Updating UI Scoreboard - Real Server Values: R_Kill=%d, B_Kill=%d"),
+		*ClientName, GS->TeamRedKillScore, GS->TeamBlueKillScore);
 
-		for (const AAFPlayerState* MemberPS : TeamMembers)
-		{
-			if (!MemberPS) continue;
-
-			if (TeamID == 0) // RED 팀
-			{
-				RedTotalKills += MemberPS->GetKillCount();
-				RedTotalDeaths += MemberPS->GetDeathCount();
-			}
-			else // BLUE 팀
-			{
-				BlueTotalKills += MemberPS->GetKillCount();
-				BlueTotalDeaths += MemberPS->GetDeathCount();
-			}
-		}
-	}
-
-	// UI 업데이트
-	if (RedKillScore) RedKillScore->SetText(FText::AsNumber(RedTotalKills));
-	if (RedDeathScore) RedDeathScore->SetText(FText::AsNumber(RedTotalDeaths));
-	if (BlueKillScore) BlueKillScore->SetText(FText::AsNumber(BlueTotalKills));
-	if (BlueDeathScore) BlueDeathScore->SetText(FText::AsNumber(BlueTotalDeaths));
+	if (RedKillScore) RedKillScore->SetText(FText::AsNumber(GS->TeamRedKillScore));
+	if (RedDeathScore) RedDeathScore->SetText(FText::AsNumber(GS->TeamRedDeathScore));
+	if (BlueKillScore) BlueKillScore->SetText(FText::AsNumber(GS->TeamBlueKillScore));
+	if (BlueDeathScore) BlueDeathScore->SetText(FText::AsNumber(GS->TeamBlueDeathScore));
 }
 
 // 자신 전용 델리게이트 핸들러
@@ -411,22 +373,25 @@ void UAFInGameWidget::UpdateGameTimerText(int32 NewTime)
 
 void UAFInGameWidget::ShowGameResult()
 {
+	AAFGameState* GS = Cast<AAFGameState>(GetWorld()->GetGameState());
+	if (!GS) return;
+
 	APlayerController* PC = GetOwningPlayer();
 	AAFPlayerController* AFPC = Cast<AAFPlayerController>(PC);
-	if (!AFPC) return;
 	AAFPlayerState* MyPS = PC ? PC->GetPlayerState<AAFPlayerState>() : nullptr;
 	if (!MyPS) return;
 
+	// ★★★ 핵심 수정: GameState의 복제된 점수를 직접 참조 ★★★
+	int32 FinalRedKills = GS->TeamRedKillScore;
+	int32 FinalBlueKills = GS->TeamBlueKillScore;
 
-	// 내 팀 확인 및 승패 판정
-	uint8 MyTeam = MyPS->GetTeamID();
+	bool bIsDraw = (FinalRedKills == FinalBlueKills);
 	bool bIWin = false;
-	bool bIsDraw = (BlueTotalKills == RedTotalKills);
 
 	if (!bIsDraw)
 	{
-		if (RedTotalKills > BlueTotalKills) bIWin = (MyTeam == 0);
-		else bIWin = (MyTeam == 1);
+		if (FinalRedKills > FinalBlueKills) bIWin = (MyPS->GetTeamID() == 0);
+		else bIWin = (MyPS->GetTeamID() == 1);
 	}
 
 	// 3. 위젯 생성 및 출력

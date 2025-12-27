@@ -53,11 +53,25 @@ public:
 	FOnTimerChangedDelegate OnTimerChanged;
 
 	// 스코어 (킬 수)
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "AFO|Score")
-	int32 TeamRedKillScore = 0;
+	UPROPERTY(ReplicatedUsing = OnRep_TeamScore, BlueprintReadOnly, Category = "AFO|Score")
+	int32 TeamRedKillScore;
 
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "AFO|Score")
-	int32 TeamBlueKillScore = 0;
+	UPROPERTY(ReplicatedUsing = OnRep_TeamScore, BlueprintReadOnly, Category = "AFO|Score")
+	int32 TeamBlueKillScore;
+
+	UPROPERTY(ReplicatedUsing = OnRep_TeamScore, BlueprintReadOnly, Category = "AFO|Score")
+	int32 TeamRedDeathScore = 0;
+
+	UPROPERTY(ReplicatedUsing = OnRep_TeamScore, BlueprintReadOnly, Category = "AFO|Score")
+	int32 TeamBlueDeathScore = 0;
+
+	UFUNCTION()
+	void OnRep_TeamScore();
+
+public:
+	// 서버에서 호출하여 점수를 올릴 함수
+	void AddTeamScore(uint8 TeamID, bool bIsKill);
+
 
 protected:
 

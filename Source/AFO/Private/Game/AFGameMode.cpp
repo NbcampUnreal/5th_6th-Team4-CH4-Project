@@ -229,17 +229,37 @@ void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* 
 		return;
 	}
 
+	// 1. 피해자(Victim) 처리
 	VictimPS->IncrementDeathCount();
 	VictimPS->SetDead(true);
-	AAFPlayerState* KillerPS = KillerController->GetPlayerState<AAFPlayerState>();
 
+	UE_LOG(LogTemp, Error, TEXT("[GAMEMODE] HandlePlayerDeath Called! Victim: %s, Killer: %s"),
+		*VictimController->GetName(), KillerController ? *KillerController->GetName() : TEXT("None"));
+
+	// [추가] 팀 데스 스코어 반영
+	if (AAFGameState* GS = GetWorld()->GetGameState<AAFGameState>())
+	{
+		
+		GS->AddTeamScore(VictimPS->GetTeamID(), false); // false는 데스 추가
+	}
+
+	AAFPlayerState* KillerPS = KillerController ? KillerController->GetPlayerState<AAFPlayerState>() : nullptr;
+
+	// 2. 킬러(Killer) 처리
 	if (KillerController && KillerController != VictimController)
 	{
+		if (KillerPS)
 		{
 			KillerPS->IncrementKillCount();
-		}
 
-		ReportKill(KillerController);
+			// [추가] 팀 킬 스코어 반영
+			if (AAFGameState* GS = GetWorld()->GetGameState<AAFGameState>())
+			{
+				GS->AddTeamScore(KillerPS->GetTeamID(), true); // true는 킬 추가
+				UE_LOG(LogTemp, Warning, TEXT("[GAMEMODE] Requesting AddTeamScore for Team %d"), KillerPS->GetTeamID());
+			}
+		}
+		// ReportKill(KillerController);
 	}
 
 	if (APawn* Pawn = VictimController->GetPawn())

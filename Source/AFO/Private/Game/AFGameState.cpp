@@ -18,6 +18,8 @@ void AAFGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	// Score 변수 복제
 	DOREPLIFETIME(ThisClass, TeamRedKillScore);
 	DOREPLIFETIME(ThisClass, TeamBlueKillScore);
+	DOREPLIFETIME(ThisClass, TeamRedDeathScore);
+	DOREPLIFETIME(ThisClass, TeamBlueDeathScore);
 
 	// 남은 시간 변수 복제 및 RepNotify 설정
 	DOREPLIFETIME(ThisClass, RemainingTimeSeconds);
@@ -115,5 +117,37 @@ void AAFGameState::AddPlayerState(APlayerState* PlayerState)
 void AAFGameState::OnRep_TeamPlayerArray()
 {
 	// 모든 클라이언트에서 실행됨
+	OnPlayerArrayChanged.Broadcast();
+}
+
+void AAFGameState::AddTeamScore(uint8 TeamID, bool bIsKill)
+{
+	if (!HasAuthority()) return;
+
+	FString ScoreType = bIsKill ? TEXT("KILL") : TEXT("DEATH");
+	FString TeamName = (TeamID == 0) ? TEXT("RED") : TEXT("BLUE");
+
+	if (TeamID == 0)
+	{
+		if (bIsKill) TeamRedKillScore++;
+		else TeamRedDeathScore++;
+	}
+	else
+	{
+		if (bIsKill) TeamBlueKillScore++;
+		else TeamBlueDeathScore++;
+	}
+
+	// ★ 서버 로그: 점수가 실제로 몇 점으로 변했는지 출력
+	UE_LOG(LogTemp, Warning, TEXT("[SERVER] TeamScore Updated: Team=%s, Type=%s, CurrentTotalKill(R:%d, B:%d)"),
+		*TeamName, *ScoreType, TeamRedKillScore, TeamBlueKillScore);
+
+	OnRep_TeamScore();
+}
+
+void AAFGameState::OnRep_TeamScore()
+{
+	// 게임 스테이트에 선언해둔 기존 델리게이트나 새로운 델리게이트를 통해 UI에 알림
+	// 여기서는 간단하게 기존 OnPlayerArrayChanged를 활용하거나 새 델리게이트를 만드세요.
 	OnPlayerArrayChanged.Broadcast();
 }
