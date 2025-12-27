@@ -61,6 +61,8 @@ void UAFAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			bIsSprinting = false;
 		}
 	}
+	
+	bIsSprinting = bIsSprinting && (GroundSpeed > 3.f);
 }
 
 void UAFAnimInstance::AnimNotify_AttackHit()
@@ -71,6 +73,14 @@ void UAFAnimInstance::AnimNotify_AttackHit()
 		{
 			Character->DealDamage();
 		}
+	}
+}
+
+void UAFAnimInstance::AnimNotify_CheckHit()
+{
+	if (OnCheckHit.IsBound() == true)
+	{
+		OnCheckHit.Broadcast();
 	}
 }
 

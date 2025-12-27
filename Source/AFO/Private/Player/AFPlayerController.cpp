@@ -2,6 +2,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "UI/AFESCWidget.h"
 #include "UI/AFInGameWidget.h"
+#include "UI/AFRespawnWidget.h"
+#include "UI/AFKillLogContainer.h"
 #include "EnhancedInputComponent.h"
 
 
@@ -12,6 +14,9 @@ JumpAction(nullptr),
 LookAction(nullptr),
 SprintAction(nullptr),
 AttackAction(nullptr),
+HeavyAttackAction(nullptr),
+SkillEAction(nullptr),
+SkillQAction(nullptr),
 ESC(nullptr)
 {
 }
@@ -33,7 +38,7 @@ void AAFPlayerController::BeginPlay()
 
 
 
-	// InGame HUD Widget »ý¼º
+	// InGame HUD Widget ï¿½ï¿½ï¿½ï¿½
 
 	if (!IsLocalController())
 	{
@@ -44,43 +49,56 @@ void AAFPlayerController::BeginPlay()
 	{
 		if (IsValid(InGameWidgetClass))
 		{
-			UE_LOG(LogTemp, Log, TEXT("1.InGameWidgetClassÀ¯È¿ÇÔ.(ÇÒ´ç¼º°ø)"));
+			UE_LOG(LogTemp, Log, TEXT("1.InGameWidgetClassï¿½ï¿½È¿ï¿½ï¿½.(ï¿½Ò´ç¼ºï¿½ï¿½)"));
 
 			InGameWidget = CreateWidget<UAFInGameWidget>(this, InGameWidgetClass);
 
 			if (IsValid(InGameWidget))
 			{
-				UE_LOG(LogTemp, Warning, TEXT("2. InGameWidget ÀÎ½ºÅÏ½º »ý¼º ¼º°ø."));
+				UE_LOG(LogTemp, Warning, TEXT("2. InGameWidget ï¿½Î½ï¿½ï¿½Ï½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½."));
 				InGameWidget->AddToViewport();
 			}
 			else
 			{
-				// CreateWidget ½ÇÆÐ: Å¬·¡½º´Â ÇÒ´çµÇ¾úÀ¸³ª ÀÎ½ºÅÏ½ºÈ­ ½ÇÆÐ (¸Å¿ì µå¹® °æ¿ì)
-				UE_LOG(LogTemp, Error, TEXT("2. InGameWidget ÀÎ½ºÅÏ½º »ý¼º ½ÇÆÐ. (CreateWidget ½ÇÆÐ)"));
+				// CreateWidget ï¿½ï¿½ï¿½ï¿½: Å¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ò´ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Î½ï¿½ï¿½Ï½ï¿½È­ ï¿½ï¿½ï¿½ï¿½ (ï¿½Å¿ï¿½ ï¿½å¹® ï¿½ï¿½ï¿½)
+				UE_LOG(LogTemp, Error, TEXT("2. InGameWidget ï¿½Î½ï¿½ï¿½Ï½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½. (CreateWidget ï¿½ï¿½ï¿½ï¿½)"));
 			}
 		}
 		else
 		{
-			// °¡Àå ÈçÇÑ ½ÇÆÐ ¿øÀÎ: Å¬·¡½º°¡ ÇÒ´çµÇÁö ¾Ê¾Ò½À´Ï´Ù.
-			UE_LOG(LogTemp, Fatal, TEXT("Å¬·¡½ºÇÒ´ç½ÇÆÐ"));
+			// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½: Å¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ò´ï¿½ï¿½ï¿½ï¿½ ï¿½Ê¾Ò½ï¿½ï¿½Ï´ï¿½.
+			UE_LOG(LogTemp, Fatal, TEXT("Å¬ï¿½ï¿½ï¿½ï¿½ï¿½Ò´ï¿½ï¿½ï¿½ï¿½"));
 		}
 		}
 
-		// ESC ¸Þ´º À§Á¬ »ý¼º (¼û°ÜÁø »óÅÂ)
+		// ESC ï¿½Þ´ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
 		if (IsValid(ESCWidgetClass))
 		{
 			ESCWidget = CreateWidget<UAFESCWidget>(this, ESCWidgetClass);
 			if (IsValid(ESCWidget))
 			{
-				ESCWidget->AddToViewport(999); // HUD À§¿¡ Ç¥½ÃµÇµµ·Ï ³ôÀº ZOrder »ç¿ë
+				ESCWidget->AddToViewport(999); // HUD ï¿½ï¿½ï¿½ï¿½ Ç¥ï¿½ÃµÇµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ZOrder ï¿½ï¿½ï¿½
 				ESCWidget->SetVisibility(ESlateVisibility::Collapsed);
-				UE_LOG(LogTemp, Log, TEXT("ESCWidget »ý¼º ¼º°ø!"));
+				UE_LOG(LogTemp, Log, TEXT("ESCWidget ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½!"));
 			}
 			else
 			{
-				UE_LOG(LogTemp, Error, TEXT("ESCWidget »ý¼º ½ÇÆÐ!"));
+				UE_LOG(LogTemp, Error, TEXT("ESCWidget ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½!"));
 			}
 		}
+
+
+		if (IsLocalController() && KillLogContainerClass)
+		{
+			KillLogContainer = CreateWidget<UAFKillLogContainer>(this, KillLogContainerClass);
+			if (KillLogContainer)
+			{
+				KillLogContainer->AddToViewport();
+				UE_LOG(LogTemp, Error, TEXT("kill log container init!"));
+			}
+		}
+
+
 	}
 
 
@@ -98,7 +116,7 @@ void AAFPlayerController::ToggleESCMenu()
 {
 	if (!IsValid(ESCWidget))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("ESCWidgetÀÌ À¯È¿ÇÏÁö ¾Ê½À´Ï´Ù."));
+		UE_LOG(LogTemp, Warning, TEXT("ESCWidgetï¿½ï¿½ ï¿½ï¿½È¿ï¿½ï¿½ï¿½ï¿½ ï¿½Ê½ï¿½ï¿½Ï´ï¿½."));
 		return;
 	}
 
@@ -113,11 +131,43 @@ void AAFPlayerController::ToggleESCMenu()
 	}
 	else
 	{
-		// ¸Þ´º ´Ý±â (Resume ±â´É)
+		// ï¿½Þ´ï¿½ ï¿½Ý±ï¿½ (Resume ï¿½ï¿½ï¿½)
 		ESCWidget->SetVisibility(ESlateVisibility::Collapsed);
 
 		SetInputMode(FInputModeGameOnly());
 		bShowMouseCursor = false;
 	}
 
+}
+
+
+void AAFPlayerController::Client_ShowRespawnWidget_Implementation(float Duration)
+{
+	if (RespawnWidgetClass)
+	{
+		CurrentRespawnWidget = CreateWidget<UAFRespawnWidget>(this, RespawnWidgetClass);
+		if (CurrentRespawnWidget)
+		{
+			CurrentRespawnWidget->InitRespawnTimer(Duration);
+			CurrentRespawnWidget->AddToViewport();
+		}
+	}
+}
+
+void AAFPlayerController::Client_ClearRespawnWidget_Implementation()
+{
+	if (CurrentRespawnWidget)
+	{
+		CurrentRespawnWidget->RemoveFromParent();
+		CurrentRespawnWidget = nullptr;
+	}
+}
+
+void AAFPlayerController::Client_ShowKillLog_Implementation(const FString& KillerName, FLinearColor KillerColor, const FString& VictimName, FLinearColor VictimColor)
+{
+	if (KillLogContainer)
+	{
+		KillLogContainer->AddKillLog(KillerName, KillerColor, VictimName, VictimColor);
+		UE_LOG(LogTemp, Error, TEXT("Add kill log init!"));
+	}
 }

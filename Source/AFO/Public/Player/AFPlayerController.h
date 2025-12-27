@@ -38,6 +38,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	UInputAction* ESC;   	// InGameUI
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* SkillEAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* SkillQAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* HeavyAttackAction;
+	
 protected:
 	virtual void BeginPlay() override;
 
@@ -46,31 +55,67 @@ protected:
 
 
 
-	// ÀÎ°ÔÀÓ HUD À§Á¬ Å¬·¡½º
+	// ï¿½Î°ï¿½ï¿½ï¿½ HUD ï¿½ï¿½ï¿½ï¿½ Å¬ï¿½ï¿½ï¿½ï¿½
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AFO|Widgets")
 	TSubclassOf<UAFInGameWidget> InGameWidgetClass;
 
-	// ESC ¸Ş´º À§Á¬ Å¬·¡½º
+	// ESC ï¿½Ş´ï¿½ ï¿½ï¿½ï¿½ï¿½ Å¬ï¿½ï¿½ï¿½ï¿½
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AFO|Widgets")
 	TSubclassOf<UAFESCWidget> ESCWidgetClass;
 
-	// »ı¼ºµÈ ÀÎ°ÔÀÓ HUD ÀÎ½ºÅÏ½º
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Î°ï¿½ï¿½ï¿½ HUD ï¿½Î½ï¿½ï¿½Ï½ï¿½
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "AFO|Widgets")
 	TObjectPtr<UAFInGameWidget> InGameWidget;
 
-	// »ı¼ºµÈ ESC ¸Ş´º ÀÎ½ºÅÏ½º
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ESC ï¿½Ş´ï¿½ ï¿½Î½ï¿½ï¿½Ï½ï¿½
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "AFO|Widgets")
 	TObjectPtr<UAFESCWidget> ESCWidget;
 
 public:
-	// ESC ¸Ş´º È°¼ºÈ­ »óÅÂ
+	// ESC ï¿½Ş´ï¿½ È°ï¿½ï¿½È­ ï¿½ï¿½ï¿½ï¿½
 	UPROPERTY(VisibleInstanceOnly, Category = "AFO|Widgets")
 	bool bIsESCMenuOpen = false;
 
-	// ESC ¸Ş´º Åä±Û ÇÔ¼ö
+	// ESC ï¿½Ş´ï¿½ ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
 	void ToggleESCMenu();
 
 private:
-	// ÀÔ·Â ÄÄÆ÷³ÍÆ® ¼³Á¤
+	// ï¿½Ô·ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ï¿½
 	virtual void SetupInputComponent() override;
+
+
+
+protected:
+	// ë¦¬ìŠ¤í° ìœ„ì ¯ í´ë˜ìŠ¤ë¥¼ ë¸”ë£¨í”„ë¦°íŠ¸ì—ì„œ í• ë‹¹í•  ìˆ˜ ìˆê²Œ ì„ ì–¸
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UAFRespawnWidget> RespawnWidgetClass;
+
+public:
+	// ì„œë²„ê°€ í´ë¼ì´ì–¸íŠ¸ì—ê²Œ í˜¸ì¶œí•˜ëŠ” í•¨ìˆ˜
+	UFUNCTION(Client, Reliable)
+	void Client_ShowRespawnWidget(float Duration);
+
+protected:
+	// ìƒì„±ëœ ìœ„ì ¯ì„ ì €ì¥í•´ë‘˜ ë³€ìˆ˜
+	UPROPERTY()
+	class UAFRespawnWidget* CurrentRespawnWidget;
+
+public:
+	// ìœ„ì ¯ ì œê±° í•¨ìˆ˜ ì¶”ê°€
+	UFUNCTION(Client, Reliable)
+	void Client_ClearRespawnWidget();
+
+
+
+public:
+	// ì„œë²„ê°€ í˜¸ì¶œí•  í‚¬ ë¡œê·¸ í‘œì‹œ RPC
+	UFUNCTION(Client, Reliable)
+	void Client_ShowKillLog(const FString& KillerName, FLinearColor KillerColor, const FString& VictimName, FLinearColor VictimColor);
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "AFO|UI")
+	TSubclassOf<class UAFKillLogContainer> KillLogContainerClass;
+
+	UPROPERTY()
+	class UAFKillLogContainer* KillLogContainer;
 };

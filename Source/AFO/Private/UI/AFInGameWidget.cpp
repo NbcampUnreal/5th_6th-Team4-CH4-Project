@@ -9,6 +9,7 @@
 #include "AFO/Public/Player/AFPlayerState.h"
 #include "GameFramework/PlayerController.h"
 #include "AFO/Public/Components/AFAttributeComponent.h"
+#include "Player/AFPlayerController.h"
 
 
 // ====================
@@ -57,28 +58,13 @@ void UAFInGameWidget::NativeConstruct()
 
 void UAFInGameWidget::HandlePlayerArrayChanged()
 {
-	// AAFGameState의 RepNotify가 발생할 때마다 호출됨
 	AGameStateBase* GS = GetWorld()->GetGameState();
-
 	if (!GS) return;
 
-	// 초기화가 안 되었고, 최소 플레이어 수 (2명)가 PlayerArray에 들어왔는지 확인
-	if (!bTeamUIInitialized && GS->PlayerArray.Num() >= 2)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("HandlePlayerArrayChanged: Initializing Team UI with %d PlayerStates."), GS->PlayerArray.Num());
-
-		// PlayerArray의 모든 PlayerState를 넘겨 InitializeTeamUI 실행
-		InitializeTeamUI(GS->PlayerArray);
-
-		// InitializeTeamUI가 완료되면 bTeamUIInitialized = true 로 설정되어야 합니다.
-	}
-	else if (bTeamUIInitialized)
-	{
-		// (옵션) 이미 초기화된 후라면, 현재 GameState를 기반으로 팀 스코어를 업데이트하거나 상태를 재확인하는 로직을 추가할 수 있습니다.
-		// 예: UpdateTeamKillDeathScore(0, nullptr); 
-	}
+	// 현재 접속 중인 모든 플레이어를 대상으로 초기화 시도
+	// bTeamUIInitialized 체크를 제거하고 내부에서 개별 플레이어별로 체크합니다.
+	InitializeTeamUI(GS->PlayerArray);
 }
-
 
 void UAFInGameWidget::CheckAndInitializeUI()
 {
@@ -130,149 +116,92 @@ void UAFInGameWidget::CheckAndInitializeUI()
 	// InitializeTeamUI 내부에서 bTeamUIInitialized = true 가 설정되어 다음 틱에 타이머가 Clear됩니다.
 }
 
-
-
 void UAFInGameWidget::InitializeTeamUI(TArray<APlayerState*> AllPlayerStates)
 {
-	// 1. 초기화 방지 플래그 체크 (위치 유지)
-	if (bTeamUIInitialized)
-	{
-		return;
-	}
-
-	// 초기화 시작
-	TeamPlayerStates.Empty();
+	// 기존의 bTeamUIInitialized 체크는 삭제하거나, 
+	// 방의 최대 인원수(예: 4명)가 모두 찼을 때만 작동하도록 변경해야 합니다.
+	// if (bTeamUIInitialized) return; 
 
 	APlayerController* LocalPC = GetOwningPlayer();
 	FString InstanceName = LocalPC ? LocalPC->GetName() : TEXT("UNKNOWN_CLIENT");
 
-	UE_LOG(LogTemp, Warning, TEXT("[%s] Initializing Team UI with %d PlayerStates."), *InstanceName, AllPlayerStates.Num());
+	// UE_LOG(LogTemp, Warning, TEXT("[%s] Attempting to bind %d PlayerStates."), *InstanceName, AllPlayerStates.Num());
 
 	for (APlayerState* PS : AllPlayerStates)
 	{
-		if (AAFPlayerState* AFPS = Cast<AAFPlayerState>(PS))
+		AAFPlayerState* AFPS = Cast<AAFPlayerState>(PS);
+		if (!AFPS) continue;
+
+		// ★ 핵심 수정: 이미 바인딩을 완료한 플레이어는 다시 처리하지 않음 (중복 바인딩 방지)
+		if (BoundPlayerStates.Contains(AFPS))
 		{
-			// 팀 로그
-			UE_LOG(LogTemp, Warning, TEXT("[%s] Processing Player: %s (Team %d, Index %d)"),
-				*InstanceName, *AFPS->GetPlayerName(), AFPS->GetTeamID(), AFPS->GetTeamIndex());
-
-			// TeamPlayerStates Map 채우기 (팀 스코어 계산에 사용)
-			TeamPlayerStates.FindOrAdd(AFPS->GetTeamID()).Add(AFPS);
-
-			// ==============
-			// 1. 이름 설정
-			// ==============
-			FText PlayerNameText = FText::FromString(AFPS->GetPlayerName());
-
-			if (AFPS->GetTeamID() == 0) // RED 팀
-			{
-				if (AFPS->GetTeamIndex() == 1 && RedPlayerName01) RedPlayerName01->SetText(PlayerNameText);
-				if (AFPS->GetTeamIndex() == 2 && RedPlayerName02) RedPlayerName02->SetText(PlayerNameText);
-			}
-			else // BLUE 팀
-			{
-				if (AFPS->GetTeamIndex() == 1 && BluePlayerName01) BluePlayerName01->SetText(PlayerNameText);
-				if (AFPS->GetTeamIndex() == 2 && BluePlayerName02) BluePlayerName02->SetText(PlayerNameText);
-			}
-
-			// ========================
-			// 2. 델리게이트 바인딩 및 초기값 설정
-			// ========================
-
-			// -----------------------------------------------------------
-			// A. 로컬 플레이어 전용 HUD (HP/MP)
-			// -----------------------------------------------------------
-			if (AFPS->GetOwner() == LocalPC)
-			{
-				AFPS->OnHealthChanged.RemoveDynamic(this, &UAFInGameWidget::UpdateMyHealthBar);
-				AFPS->OnManaChanged.RemoveDynamic(this, &UAFInGameWidget::UpdateMyManaBar);
-				AFPS->OnHealthChanged.AddDynamic(this, &UAFInGameWidget::UpdateMyHealthBar);
-				AFPS->OnManaChanged.AddDynamic(this, &UAFInGameWidget::UpdateMyManaBar);
-
-				// 초기값 설정
-				UpdateMyHealthBar(AFPS->GetCurrentHealth(), AFPS->GetMaxHealth(), AFPS);
-				UpdateMyManaBar(AFPS->GetCurrentMana(), AFPS->GetMaxMana(), AFPS);
-
-				UE_LOG(LogTemp, Warning, TEXT("[%s] BIND: Local Player HUD Bound."), *InstanceName);
-			}
-
-			// -----------------------------------------------------------
-			// B. 스코어보드 개별 상태 (모든 플레이어)
-			// -----------------------------------------------------------
-
-			// 바인딩 전 정리 (RemoveDynamic 유지)
-			AFPS->OnHealthChanged.RemoveDynamic(this, &UAFInGameWidget::UpdatePlayerHealthBar);
-			AFPS->OnManaChanged.RemoveDynamic(this, &UAFInGameWidget::UpdatePlayerManaBar);
-			AFPS->OnKillCountChanged.RemoveDynamic(this, &UAFInGameWidget::UpdatePlayerKillCount);
-			AFPS->OnDeathCountChanged.RemoveDynamic(this, &UAFInGameWidget::UpdatePlayerDeathCount);
-
-			// 바인딩 (AddDynamic 유지)
-			AFPS->OnHealthChanged.AddDynamic(this, &UAFInGameWidget::UpdatePlayerHealthBar);
-			AFPS->OnManaChanged.AddDynamic(this, &UAFInGameWidget::UpdatePlayerManaBar);
-			AFPS->OnKillCountChanged.AddDynamic(this, &UAFInGameWidget::UpdatePlayerKillCount);
-			AFPS->OnDeathCountChanged.AddDynamic(this, &UAFInGameWidget::UpdatePlayerDeathCount);
-
-			// 초기값 설정
-			UpdatePlayerHealthBar(AFPS->GetCurrentHealth(), AFPS->GetMaxHealth(), AFPS); // HP 초기값 추가 (누락 가능성)
-			UpdatePlayerManaBar(AFPS->GetCurrentMana(), AFPS->GetMaxMana(), AFPS); // MP 초기값 추가
-			UpdatePlayerKillCount(AFPS->GetKillCount(), AFPS);
-			UpdatePlayerDeathCount(AFPS->GetDeathCount(), AFPS);
-
-			// -----------------------------------------------------------
-			// C. 팀 총합 스코어 바인딩 (모든 플레이어)
-			// -----------------------------------------------------------
-
-			// 바인딩 전 정리 (RemoveDynamic 유지)
-			AFPS->OnKillCountChanged.RemoveDynamic(this, &UAFInGameWidget::UpdateTeamKillDeathScore);
-			AFPS->OnDeathCountChanged.RemoveDynamic(this, &UAFInGameWidget::UpdateTeamKillDeathScore);
-
-			// 바인딩 (AddDynamic 유지)
-			AFPS->OnKillCountChanged.AddDynamic(this, &UAFInGameWidget::UpdateTeamKillDeathScore);
-			AFPS->OnDeathCountChanged.AddDynamic(this, &UAFInGameWidget::UpdateTeamKillDeathScore);
-
-			// ★★★ 디버깅 로그 추가 ★★★
-			UE_LOG(LogTemp, Warning, TEXT("[%s] BIND SUCCESS: PlayerState %s (Team %d) scoreboard bound."),
-				*InstanceName, *AFPS->GetPlayerName(), AFPS->GetTeamID());
+			continue;
 		}
-	} // ★★★ for 루프 끝 ★★★
 
-	// ==========================================================
-	// 3. 루프 완료 후 최종 초기화 및 플래그 설정
-	// ==========================================================
+		UE_LOG(LogTemp, Warning, TEXT("[%s] New Player Detected! Binding: %s (Team %d)"),
+			*InstanceName, *AFPS->GetPlayerName(), AFPS->GetTeamID());
 
-	// ★★★ 팀 총합 스코어 초기화 (루프 밖으로 이동)
-	// Map을 사용하여 전체 재계산 유도
+		// TeamPlayerStates Map 업데이트 (AddUnique 사용으로 중복 방지)
+		TeamPlayerStates.FindOrAdd(AFPS->GetTeamID()).AddUnique(AFPS);
+
+		// ==============
+		// 1. 이름 설정
+		// ==============
+		FText PlayerNameText = FText::FromString(AFPS->GetPlayerName());
+		if (AFPS->GetTeamID() == 0) // RED
+		{
+			if (AFPS->GetTeamIndex() == 1 && RedPlayerName01) RedPlayerName01->SetText(PlayerNameText);
+			if (AFPS->GetTeamIndex() == 2 && RedPlayerName02) RedPlayerName02->SetText(PlayerNameText);
+		}
+		else // BLUE
+		{
+			if (AFPS->GetTeamIndex() == 1 && BluePlayerName01) BluePlayerName01->SetText(PlayerNameText);
+			if (AFPS->GetTeamIndex() == 2 && BluePlayerName02) BluePlayerName02->SetText(PlayerNameText);
+		}
+
+		// ==============
+		// 2. 델리게이트 바인딩 (로컬/스코어보드/팀스코어)
+		// ==============
+
+		// A. 로컬 전용 (HUD)
+		if (AFPS->GetOwner() == LocalPC)
+		{
+			AFPS->OnHealthChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateMyHealthBar);
+			AFPS->OnManaChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateMyManaBar);
+			UpdateMyHealthBar(AFPS->GetCurrentHealth(), AFPS->GetMaxHealth(), AFPS);
+			UpdateMyManaBar(AFPS->GetCurrentMana(), AFPS->GetMaxMana(), AFPS);
+		}
+
+		// B. 스코어보드 개별 바인딩
+		AFPS->OnHealthChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdatePlayerHealthBar);
+		AFPS->OnManaChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdatePlayerManaBar);
+		AFPS->OnKillCountChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdatePlayerKillCount);
+		AFPS->OnDeathCountChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdatePlayerDeathCount);
+
+		// C. 팀 총합 스코어 바인딩
+		AFPS->OnKillCountChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateTeamKillDeathScore);
+		AFPS->OnDeathCountChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateTeamKillDeathScore);
+
+		// 초기값 즉시 반영
+		UpdatePlayerHealthBar(AFPS->GetCurrentHealth(), AFPS->GetMaxHealth(), AFPS);
+		UpdatePlayerManaBar(AFPS->GetCurrentMana(), AFPS->GetMaxMana(), AFPS);
+		UpdatePlayerKillCount(AFPS->GetKillCount(), AFPS);
+		UpdatePlayerDeathCount(AFPS->GetDeathCount(), AFPS);
+
+		// ★ 바인딩 완료 목록에 추가
+		BoundPlayerStates.Add(AFPS);
+	}
+
+	// 팀 점수 최종 갱신
 	UpdateTeamKillDeathScore(0, nullptr);
 
-	// ★★★ 초기화 성공 플래그 설정 (루프 밖으로 이동 - 핵심 수정)
-	bTeamUIInitialized = true;
-
-	UE_LOG(LogTemp, Warning, TEXT("[%s] Team UI Initialization COMPLETE."), *InstanceName);
-
-	if (AllPlayerStates.Num() >= 2)
+	// 최대 인원이 다 찼을 때만 초기화 완료 플래그 설정 (예: 4명 기준)
+	if (BoundPlayerStates.Num() >= 4)
 	{
 		bTeamUIInitialized = true;
-		UpdateTeamKillDeathScore(0, nullptr);
-		UE_LOG(LogTemp, Warning, TEXT("[%s] Team UI Initialization COMPLETE. Total bound: %d"), *InstanceName, AllPlayerStates.Num());
-	}
-	else
-	{
-		// 2명이 안 되면 타이머를 계속 유지하도록 CheckAndInitializeUI를 통해 재시도해야 합니다.
-		UE_LOG(LogTemp, Warning, TEXT("[%s] Initialization INCOMPLETE. Waiting for more players."), *InstanceName);
+		UE_LOG(LogTemp, Warning, TEXT("[%s] ALL PLAYERS BOUND (%d/4)."), *InstanceName, BoundPlayerStates.Num());
 	}
 }
-
-
-// ====================
-// 2. 델리게이트 핸들러
-// ====================
-
-
-
-
-
-
-
 
 // 팀 스코어보드 핸들러
 void UAFInGameWidget::UpdatePlayerHealthBar(float CurrentHealth, float MaxHealth, AAFPlayerState* TargetPS)
@@ -310,12 +239,6 @@ void UAFInGameWidget::UpdatePlayerHealthBar(float CurrentHealth, float MaxHealth
 		UE_LOG(LogTemp, Warning, TEXT("SCOREBOARD UPDATE FAILED: Team %d Index %d. TargetHPBar is NULL."), TargetPS->GetTeamID(), TargetPS->GetTeamIndex());
 	}
 }
-
-
-
-
-
-
 
 void UAFInGameWidget::UpdatePlayerManaBar(float CurrentMana, float MaxMana, AAFPlayerState* TargetPS)
 {
@@ -378,10 +301,11 @@ void UAFInGameWidget::UpdatePlayerDeathCount(int32 NewDeathCount, AAFPlayerState
 // 팀 총합 스코어 갱신 핸들러
 void UAFInGameWidget::UpdateTeamKillDeathScore(int32 NewValue, AAFPlayerState* TargetPS)
 {
-	int32 RedTotalKills = 0;
-	int32 RedTotalDeaths = 0;
-	int32 BlueTotalKills = 0;
-	int32 BlueTotalDeaths = 0;
+
+	RedTotalKills = 0;
+	RedTotalDeaths = 0;
+	BlueTotalKills = 0;
+	BlueTotalDeaths = 0;
 
 	// Map을 순회하며 팀별 총합을 계산
 	for (const auto& Elem : TeamPlayerStates)
@@ -477,6 +401,55 @@ void UAFInGameWidget::UpdateGameTimerText(int32 NewTime)
 	{
 		GameTimer->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
 	}
+
+	if (NewTime <= 0)
+	{
+		ShowGameResult();
+	}
+}
+
+
+void UAFInGameWidget::ShowGameResult()
+{
+	APlayerController* PC = GetOwningPlayer();
+	AAFPlayerController* AFPC = Cast<AAFPlayerController>(PC);
+	if (!AFPC) return;
+	AAFPlayerState* MyPS = PC ? PC->GetPlayerState<AAFPlayerState>() : nullptr;
+	if (!MyPS) return;
+
+
+	// 내 팀 확인 및 승패 판정
+	uint8 MyTeam = MyPS->GetTeamID();
+	bool bIWin = false;
+	bool bIsDraw = (BlueTotalKills == RedTotalKills);
+
+	if (!bIsDraw)
+	{
+		if (RedTotalKills > BlueTotalKills) bIWin = (MyTeam == 0);
+		else bIWin = (MyTeam == 1);
+	}
+
+	// 3. 위젯 생성 및 출력
+	TSubclassOf<UUserWidget> ResultClass = nullptr;
+
+	if (bIsDraw)
+	{
+		ResultClass = DrawWidgetClass;
+	}
+	else
+	{
+		ResultClass = bIWin ? VictoryWidgetClass : LoseWidgetClass;
+	}
+	
+	if (ResultClass)
+	{
+		UUserWidget* ResultWidget = CreateWidget<UUserWidget>(GetWorld(), ResultClass);
+		if (ResultWidget)
+		{
+			AFPC->Client_ClearRespawnWidget();
+			ResultWidget->AddToViewport();
+		}
+	}
 }
 
 
@@ -532,7 +505,7 @@ void UAFInGameWidget::CheckAndBindPlayerState()
 	else
 	{
 		// 아직 못 찾았으면 다음 주기까지 기다립니다.
-		UE_LOG(LogTemp, Log, TEXT("Waiting for PlayerState..."));
+		// UE_LOG(LogTemp, Log, TEXT("Waiting for PlayerState..."));
 	}
 }
 

@@ -49,9 +49,10 @@ void AAFTitlePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
+void AAFTitlePlayerController::JoinServer(const FString& InIPAddress, const FString& InPlayerName)
 {
 	const FString Trimmed = InIPAddress.TrimStartAndEnd();
+	const FString TrimmedName = InPlayerName.TrimStartAndEnd().IsEmpty() ? TEXT("DefaultPlayer") : InPlayerName;
 
 	FInputModeGameOnly GameMode;
 	SetInputMode(GameMode);
@@ -69,14 +70,20 @@ void AAFTitlePlayerController::JoinServer(const FString& InIPAddress)
 		TitleBGMComponent = nullptr;
 	}
 
+	// 1. 로컬에서 방을 직접 팔 때 (Listen Server)
 	if (Trimmed.IsEmpty())
 	{
-		const FString MapURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOBattleZone?listen");
-		UGameplayStatics::OpenLevel(GetWorld(), FName(*MapURL), true);
+		const FString MapURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOTeamSelect");
+		const FString Options = FString::Printf(TEXT("listen?Name=%s"), *TrimmedName);
+
+		UGameplayStatics::OpenLevel(GetWorld(), FName(*MapURL), true, Options);
 		return;
 	}
 
-	const FString Address = FString::Printf(TEXT("%s:7777"), *Trimmed);
+	// 2. 다른 서버에 접속할 때 (Client Travel)
+	const FString Address = FString::Printf(TEXT("%s:7777?Name=%s"), *Trimmed, *TrimmedName);
+
+	UE_LOG(LogTemp, Log, TEXT("Traveling to: %s"), *Address);
 	ClientTravel(Address, TRAVEL_Absolute);
 }
 

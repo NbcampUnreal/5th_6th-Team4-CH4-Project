@@ -130,4 +130,32 @@ protected:
 	UFUNCTION()
 	void HandlePlayerArrayChanged();
 
+
+	// 이미 UI 바인딩이 완료된 PlayerState들을 저장 (중복 방지)
+	UPROPERTY()
+	TSet<class AAFPlayerState*> BoundPlayerStates;
+
+	// 최대 인원수 (GameState 등에서 가져오도록 설정 가능)
+	int32 MaxPlayerCount = 4;
+
+
+
+	protected:
+		// 게임 승리 패배 결과 위젯
+		UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
+		TSubclassOf<UUserWidget> VictoryWidgetClass;
+
+		UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
+		TSubclassOf<UUserWidget> LoseWidgetClass;
+
+		UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
+		TSubclassOf<UUserWidget> DrawWidgetClass;
+
+		UFUNCTION()
+		void ShowGameResult();
+
+		int32 RedTotalKills = 0;
+		int32 RedTotalDeaths = 0;
+		int32 BlueTotalKills = 0;
+		int32 BlueTotalDeaths = 0;
 };

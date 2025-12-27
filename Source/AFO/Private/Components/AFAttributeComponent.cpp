@@ -1,10 +1,14 @@
 // AFAttributeComponent.cpp
 
 
+
 #include "Components/AFAttributeComponent.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "Player/AFPlayerState.h"
+#include "Game/AFGameMode.h"
+#include "UI/AFFloatingDamageManager.h"
+#include "Kismet/GameplayStatics.h"
 
 UAFAttributeComponent::UAFAttributeComponent()
 {
@@ -39,7 +43,12 @@ void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 
 	UE_LOG(LogTemp, Warning, TEXT("[%s] HP: %f"), *GetOwner()->GetName(), Health);
 
-	// ★★★ 이 부분에 PlayerState로 동기화하는 로직을 추가합니다.
+
+	// InstigatedBy를 통해 '누가 때렸는지'를 판별하여 공격자/피격자 색상을 결정
+	Multicast_NotifyDamage(Damage, GetOwner()->GetActorLocation(), InstigatedBy, false);
+
+
+
 	SyncHealthToPlayerState();
 	// 타이머를 이용한 반복 로직은 SyncHealthToPlayerState 내부에서 처리되므로,
 	// 여기서는 그냥 호출만 하면 됩니다.
@@ -51,40 +60,73 @@ void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 	}
 }
 
+//void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
+//{
+//	//중복 호출 방지
+//	if (bIsDead)
+//	{
+//		return;
+//	}
+//
+//	bIsDead = true;
+//
+//	if (GetWorld())
+//	{
+//		GetWorld()->GetTimerManager().ClearTimer(HealthSyncTimerHandle);
+//	}
+//
+//	AActor* OwnerActor = GetOwner();
+//	if (!OwnerActor) return;
+//
+//	UE_LOG(LogTemp, Warning, TEXT("[%s] is Dead"), *OwnerActor->GetName());
+//	
+//	// 피해자 Death 증가
+//	if (APawn* PawnOwner = Cast<APawn>(OwnerActor))
+//	{
+//		if (AAFPlayerState* VictimPS = PawnOwner->GetPlayerState<AAFPlayerState>())
+//		{
+//			VictimPS->IncrementDeathCount();
+//		}
+//	}
+//	
+//	// 공격자 Kill 증가
+//	if (InstigatedBy)
+//	{
+//		if (AAFPlayerState* AttackerPS = InstigatedBy->GetPlayerState<AAFPlayerState>())
+//		{
+//			AttackerPS->IncrementKillCount();
+//		}
+//	}
+//}
+
 void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
 {
-	//중복 호출 방지
-	if (bIsDead)
+	if (bIsDead) return;
+	bIsDead = true;
+
+	if (GetWorld())
 	{
-		return;
+		GetWorld()->GetTimerManager().ClearTimer(HealthSyncTimerHandle);
 	}
 
-	bIsDead = true;
+	SyncHealthToPlayerState();
 
 	AActor* OwnerActor = GetOwner();
 	if (!OwnerActor) return;
 
 	UE_LOG(LogTemp, Warning, TEXT("[%s] is Dead"), *OwnerActor->GetName());
-	
-	// 피해자 Death 증가
+
 	if (APawn* PawnOwner = Cast<APawn>(OwnerActor))
 	{
-		if (AAFPlayerState* VictimPS = PawnOwner->GetPlayerState<AAFPlayerState>())
+		AController* VictimController = PawnOwner->GetController();
+		if (!VictimController) return;
+
+		if (AAFGameMode* GM = GetWorld()->GetAuthGameMode<AAFGameMode>())
 		{
-			VictimPS->IncrementDeathCount();
-		}
-	}
-	
-	// 공격자 Kill 증가
-	if (InstigatedBy)
-	{
-		if (AAFPlayerState* AttackerPS = InstigatedBy->GetPlayerState<AAFPlayerState>())
-		{
-			AttackerPS->IncrementKillCount();
+			GM->HandlePlayerDeath(VictimController, InstigatedBy);
 		}
 	}
 }
-
 
 
 void UAFAttributeComponent::SyncHealthToPlayerState()
@@ -124,4 +166,43 @@ void UAFAttributeComponent::SyncHealthToPlayerState()
 	}
 }
 
+
+
+
+void UAFAttributeComponent::Multicast_NotifyDamage_Implementation(float Damage, FVector Location, AController* InstigatedBy, bool bIsCritical)
+{
+	AAFFloatingDamageManager* DamageManager = Cast<AAFFloatingDamageManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AAFFloatingDamageManager::StaticClass()));
+
+	if (DamageManager)
+	{
+
+
+		APlayerController* LocalPC = GetWorld()->GetFirstPlayerController();
+		if (!LocalPC) return;
+
+		AAFPlayerState* MyPS = LocalPC->GetPlayerState<AAFPlayerState>();
+		if (!MyPS) return;
+
+		// 2. 공격자의 PlayerState 가져오기
+		AAFPlayerState* InstigatorPS = InstigatedBy ? InstigatedBy->GetPlayerState<AAFPlayerState>() : nullptr;
+
+		bool bIsEnemyDamage = false;
+
+		if (InstigatorPS)
+		{
+			// [팀 비교 로직]
+			if (MyPS->GetTeamID() == InstigatorPS->GetTeamID())
+			{
+				bIsEnemyDamage = true; // 우리 팀의 공격 성공!
+			}
+		}
+		else
+		{
+			// 공격자 정보가 없는 경우(예: 환경 데미지 등)는 기본적으로 빨간색
+			bIsEnemyDamage = false;
+		}
+
+		DamageManager->ShowDamage(Damage, Location, bIsEnemyDamage, bIsCritical);
+	}
+}
 

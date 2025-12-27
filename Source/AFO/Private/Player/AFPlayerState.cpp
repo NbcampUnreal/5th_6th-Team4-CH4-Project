@@ -5,17 +5,19 @@
 #include "GameFramework/PlayerController.h"
 #include "Player/AFPlayerController.h"
 #include "Net/UnrealNetwork.h"
+#include "Game/AFLobbyGameState.h"
 
 AAFPlayerState::AAFPlayerState()
 {
 	MaxHealth = 100.0f;
-	MaxMana = 100.0f;
+	MaxMana = 1000.0f;
 	CurrentHealth = MaxHealth;
 	CurrentMana = MaxMana;
 	KillCount = 0;
 	DeathCount = 0;
 	TeamID = 0; // Default RED
 	TeamIndex = 1; // Default Index 1
+	bIsDead = false;
 }
 
 void AAFPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -30,6 +32,37 @@ void AAFPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AAFPlayerState, DeathCount);
 	DOREPLIFETIME(AAFPlayerState, TeamID);
 	DOREPLIFETIME(AAFPlayerState, TeamIndex);
+	DOREPLIFETIME(AAFPlayerState, bIsDead);
+	DOREPLIFETIME(AAFPlayerState, SelectedCharacterId);
+	DOREPLIFETIME(AAFPlayerState, bReady);
+}
+
+void AAFPlayerState::CopyProperties(APlayerState* PlayerState)
+{
+	Super::CopyProperties(PlayerState);
+
+	if (AAFPlayerState* NewPS = Cast<AAFPlayerState>(PlayerState))
+	{
+		NewPS->TeamID = TeamID;
+		NewPS->TeamIndex = TeamIndex;
+		NewPS->SelectedCharacterId = SelectedCharacterId;
+		NewPS->bReady = bReady;
+		UE_LOG(LogTemp, Warning, TEXT("CopyProperties: OldTeam=%d -> NewPS Team Set!"), TeamID);
+	}
+}
+
+void AAFPlayerState::OverrideWith(APlayerState* PlayerState)
+{
+	Super::OverrideWith(PlayerState);
+
+	if (AAFPlayerState* OldPS = Cast<AAFPlayerState>(PlayerState))
+	{
+		TeamID = OldPS->TeamID;
+		TeamIndex = OldPS->TeamIndex;
+
+		SelectedCharacterId = OldPS->SelectedCharacterId;
+		bReady = OldPS->bReady;
+	}
 }
 
 // =========================
@@ -55,6 +88,19 @@ void AAFPlayerState::OnRep_DeathCount()
 	OnDeathCountChanged.Broadcast(DeathCount, this);
 }
 
+void AAFPlayerState::OnRep_IsDead()
+{
+	// 여기다가 UI 갱신
+}
+
+void AAFPlayerState::OnRep_SelectedCharacter() 
+{
+	/* UI 갱신 가능 */ 
+}
+void AAFPlayerState::OnRep_Ready()
+{
+
+}
 
 // =========================
 // Setter 구현
@@ -111,6 +157,19 @@ void AAFPlayerState::IncrementDeathCount()
 	OnRep_DeathCount();
 }
 
+void AAFPlayerState::OnRep_TeamInfo()
+{
+	OnTeamInfoChanged.Broadcast(this);
+
+	if (UWorld* World = GetWorld())
+	{
+		if (AAFLobbyGameState* LGS = World->GetGameState<AAFLobbyGameState>())
+		{
+			LGS->OnCountsChanged.Broadcast();
+		}
+	}
+}
+
 void AAFPlayerState::SetTeamInfo(uint8 NewTeamID, uint8 NewTeamIndex)
 {
 	if (!HasAuthority()) return;
@@ -118,11 +177,58 @@ void AAFPlayerState::SetTeamInfo(uint8 NewTeamID, uint8 NewTeamIndex)
 	TeamID = NewTeamID;
 	TeamIndex = NewTeamIndex;
 
-	// TeamID와 TeamIndex는 복제되어 클라이언트에게 전달됩니다.
+	ForceNetUpdate();
+
+	OnRep_TeamInfo();
 }
 
 
+void AAFPlayerState::SetDead(bool bNewDead)
+{
+	if (!HasAuthority()) return;
 
+	if (bIsDead == bNewDead)
+	{
+		return;
+	}
+
+	bIsDead = bNewDead;
+
+	// 서버에서도 즉시 반응이 필요하면 호출하라 하네요
+	OnRep_IsDead();
+}
+
+void AAFPlayerState::ResetForRespawn()
+{
+	if (!HasAuthority()) return;
+
+	SetDead(false);
+	SetHealth(MaxHealth, MaxHealth);
+	SetMana(MaxMana, MaxMana);
+}
+
+void AAFPlayerState::SetSelectedCharacter_Server(uint8 InId)
+{
+	if (!HasAuthority()) return;
+	SelectedCharacterId = InId;
+	OnRep_SelectedCharacter();
+}
+
+void AAFPlayerState::SetReady_Server(bool bNewReady)
+{
+	if (!HasAuthority()) return;
+	bReady = bNewReady;
+	OnRep_Ready();
+}
+
+void AAFPlayerState::ResetLobbySelection_Server()
+{
+	if (!HasAuthority()) return;
+	SelectedCharacterId = 255;
+	bReady = false;
+	OnRep_SelectedCharacter();
+	OnRep_Ready();
+}
 
 void AAFPlayerState::AddMana(float Amount)
 {
