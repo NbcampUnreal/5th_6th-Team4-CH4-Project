@@ -9,11 +9,21 @@
 #include "Game/AFGameMode.h"
 #include "UI/AFFloatingDamageManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 UAFAttributeComponent::UAFAttributeComponent()
 {
+	SetIsReplicatedByDefault(true);
+	CurrentShield = 0.f;
 	PrimaryComponentTick.bCanEverTick = false;
 }
+
+void UAFAttributeComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UAFAttributeComponent, CurrentShield);
+}
+
 
 void UAFAttributeComponent::BeginPlay()
 {
@@ -38,6 +48,15 @@ void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 		return;
 	}
 
+	// 보호막이 있는 경우 데미지에서 보호막 수치만큼 차감
+	if (CurrentShield > 0.f)
+	{
+		float DamageToShield = FMath::Min(CurrentShield, Damage);
+		CurrentShield -= DamageToShield;
+		Damage -= DamageToShield;
+		OnRep_CurrentShield();
+	}
+
 	Health -= Damage;
 	Health = FMath::Clamp(Health, 0.f, MaxHealth);
 
@@ -59,45 +78,6 @@ void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 		HandleDeath(InstigatedBy);
 	}
 }
-
-//void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
-//{
-//	//중복 호출 방지
-//	if (bIsDead)
-//	{
-//		return;
-//	}
-//
-//	bIsDead = true;
-//
-//	if (GetWorld())
-//	{
-//		GetWorld()->GetTimerManager().ClearTimer(HealthSyncTimerHandle);
-//	}
-//
-//	AActor* OwnerActor = GetOwner();
-//	if (!OwnerActor) return;
-//
-//	UE_LOG(LogTemp, Warning, TEXT("[%s] is Dead"), *OwnerActor->GetName());
-//	
-//	// 피해자 Death 증가
-//	if (APawn* PawnOwner = Cast<APawn>(OwnerActor))
-//	{
-//		if (AAFPlayerState* VictimPS = PawnOwner->GetPlayerState<AAFPlayerState>())
-//		{
-//			VictimPS->IncrementDeathCount();
-//		}
-//	}
-//	
-//	// 공격자 Kill 증가
-//	if (InstigatedBy)
-//	{
-//		if (AAFPlayerState* AttackerPS = InstigatedBy->GetPlayerState<AAFPlayerState>())
-//		{
-//			AttackerPS->IncrementKillCount();
-//		}
-//	}
-//}
 
 void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
 {
@@ -127,7 +107,6 @@ void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
 		}
 	}
 }
-
 
 void UAFAttributeComponent::SyncHealthToPlayerState()
 {
@@ -166,9 +145,6 @@ void UAFAttributeComponent::SyncHealthToPlayerState()
 	}
 }
 
-
-
-
 void UAFAttributeComponent::Multicast_NotifyDamage_Implementation(float Damage, FVector Location, AController* InstigatedBy, bool bIsCritical)
 {
 	AAFFloatingDamageManager* DamageManager = Cast<AAFFloatingDamageManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AAFFloatingDamageManager::StaticClass()));
@@ -206,3 +182,25 @@ void UAFAttributeComponent::Multicast_NotifyDamage_Implementation(float Damage, 
 	}
 }
 
+
+void UAFAttributeComponent::AddShield(float Amount, float Duration)
+{
+	if (!GetOwner()->HasAuthority()) return;
+
+	CurrentShield += Amount;
+	OnRep_CurrentShield(); // 서버에서도 즉시 알림
+
+	// 지속시간이 지나면 보호막 제거 타이머 설정
+	GetWorld()->GetTimerManager().SetTimer(ShieldTimerHandle, this, &UAFAttributeComponent::OnShieldExpired, Duration, false);
+}
+
+void UAFAttributeComponent::OnShieldExpired()
+{
+	CurrentShield = 0.f;
+	OnRep_CurrentShield();
+}
+
+void UAFAttributeComponent::OnRep_CurrentShield()
+{
+	OnShieldChanged.Broadcast(CurrentShield);
+}

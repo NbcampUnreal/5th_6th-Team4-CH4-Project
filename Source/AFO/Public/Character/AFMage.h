@@ -1,8 +1,12 @@
+// AFMage.h
+
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Character/AFPlayerCharacter.h"
 #include "AFMage.generated.h"
+
+class UNiagaraSystem;
 
 UCLASS()
 class AFO_API AAFMage : public AAFPlayerCharacter
@@ -12,28 +16,97 @@ class AFO_API AAFMage : public AAFPlayerCharacter
 public:
 	AAFMage();
 	
+protected:
+	// Mage 전용 스킬 수치 (에디터에서 수정 가능)
+	UPROPERTY(EditAnywhere, Category = "Mage|Attack")  // 기본공격 데미지
+	float AttackDamage = 20.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mage|Skill E") // 보호막 수치
+	float E_ShieldAmount = 60.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mage|Skill E")  // E스킬 범위
+	float E_Range = 500.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mage|Balance") // 보호막 지속 시간
+	float E_Duration = 5.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mage|Skill Q")  // Q스킬 데미지
+	float Q_Damage = 120.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mage|Skill Q")  // Q스킬 범위
+	float Q_Radius = 400.f;
+
+	// 일반 공격 마나 감소량
+	UPROPERTY(EditAnywhere, Category = "Mage|Passive")
+	float ManaBurnAmount = 10.f;
+
+	// 스킬별 쿨타임 수치
+	UPROPERTY(EditAnywhere, Category = "Mage|Cooldown")
+	float Q_CooldownTime = 10.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mage|Cooldown")
+	float E_CooldownTime = 15.f;
+
+	// 쿨타임 관리용 핸들
+	FTimerHandle TimerHandle_SkillQ;
+	FTimerHandle TimerHandle_SkillE;
+
+	bool bCanUseSkillQ = true;
+	bool bCanUseSkillE = true;
+
+	// 쿨타임 초기화 함수
+	void ResetSkillQ() { bCanUseSkillQ = true; }
+	void ResetSkillE() { bCanUseSkillE = true; }
+
+	// 부모의 판정 함수 오버라이드
+	virtual void HandleOnCheckHit() override;
+
+	virtual void Multicast_PlaySkillEMontage_Implementation() override;
+
+
+	
+	virtual void Jump() override; // 점프 차단
+	virtual void StopJumping() override;
 	virtual void StartSprint(const FInputActionValue& Value) override;
 	virtual void StopSprint(const FInputActionValue& Value) override;
-	
-	// 점프 차단
-	virtual void Jump() override;
-	virtual void StopJumping() override;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
-	bool bIsSprinting = false;
-
 	virtual void Tick(float DeltaTime) override;
 
+
+public: 
 	// AimOffset 값
 	UPROPERTY(BlueprintReadOnly, Category="Aim")
 	float AimYaw;
-
 	UPROPERTY(BlueprintReadOnly, Category="Aim")
 	float AimPitch;
-
 	UPROPERTY(BlueprintReadOnly, Category="Aim")
 	float AimAlpha;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+	bool bIsSprinting = false;
 
 protected:
 	virtual void BeginPlay() override;
+
+
+	// 부모의 RPC를 오버라이드 (Implementation만 작성하면 됨)
+	virtual void ServerRPC_SkillE_Implementation() override;
+	virtual void ServerRPC_SkillQ_Implementation() override;
+
+	// Mage 전용 패시브를 위해 판정 함수 오버라이드
+	virtual void HandleSkillHitCheck(float Radius, float Damage, float RotationOffset) override;
+
+	// 보호막 부여 전용 함수 (내부 로직 분리)
+	void ApplyShieldToAllies(float Radius, float Amount);
+
+	// 보호막 이펙트 멀티캐스트
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayShieldEffect(AActor* TargetActor);
+
+	// 에디터에서 설정할 이펙트 에셋
+	UPROPERTY(EditAnywhere, Category = "Mage|Effects")
+	TObjectPtr<UNiagaraSystem> ShieldEffect;
+
+
+
+
+
 };

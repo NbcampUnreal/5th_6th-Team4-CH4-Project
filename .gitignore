@@ -1,6 +1,10 @@
 # Visual Studio 2015 user specific files
 .vs/
 .vsconfig
+*.vcxproj
+*.filters
+*.user
+enc_temp_folder/
 
 # Jetbrain Rider
 .idea/

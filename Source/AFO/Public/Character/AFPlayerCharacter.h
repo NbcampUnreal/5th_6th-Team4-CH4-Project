@@ -141,7 +141,7 @@ public:
 	void DealDamage();
 
 	UFUNCTION()
-	void HandleOnCheckHit();
+	virtual void HandleOnCheckHit();
 
 	UFUNCTION()
 	void HandleOnCheckInputAttack();
@@ -155,7 +155,7 @@ public:
 	
 	void TriggerHitReact_FromAttacker(AActor* Attacker);
 
-private:
+protected:
 	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArm;
 	UPROPERTY(VisibleAnywhere)
@@ -193,10 +193,10 @@ protected:
 	FOnMontageEnded OnMeleeAttackMontageEndedDelegate;
 
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlaySkillEMontage();
+	virtual void Multicast_PlaySkillEMontage();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlaySkillQMontage();
+	virtual void Multicast_PlaySkillQMontage();
 	
 	// 이동 잠금
 	bool bMovementLocked = false;
@@ -221,7 +221,8 @@ protected:
 
 	// 스킬 범위 함수
 	UFUNCTION()
-	void HandleSkillHitCheck(float Radius, float Damage, float RotationOffset = 0.f);
+	virtual void HandleSkillHitCheck(float Radius, float Damage, float RotationOffset = 0.f);
+
 
 	// 아군인지 확인하는 함수
 	bool IsAlly(AActor* InTargetActor);
