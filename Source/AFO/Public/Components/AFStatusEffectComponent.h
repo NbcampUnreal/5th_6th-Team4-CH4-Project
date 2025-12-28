@@ -43,4 +43,6 @@ private:
 	void ApplySlow_Internal();
 
 	void ClearSlow();
+
+	
 };

@@ -39,6 +39,8 @@ public:
 
 	// 체력 변경 함수 선언
 	void ApplyHealthChange(int32 Value);
+	void ResetMaxHealth(int32 Value);
+	void ResetMaxHealth();
 
 protected:
 	// 사망 처리 분리
@@ -47,6 +49,12 @@ protected:
 public:
 	// Health 변경 시 PlayerState에 동기화 하는 함수
 	void SyncHealthToPlayerState();
+
+public:
+	void ModifyMaxHealth(float Ratio);
+
+	
+
 
 private:
 	FTimerHandle HealthSyncTimerHandle;

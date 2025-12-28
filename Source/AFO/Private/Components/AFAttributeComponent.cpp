@@ -102,6 +102,29 @@ void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 	}
 }
 
+void UAFAttributeComponent::ApplyHealthChange(int32 Value)
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority()) return;
+
+	const int32 OldHealth = Health;
+	Health = FMath::Clamp(Health + Value, 0, MaxHealth);
+}
+
+
+void UAFAttributeComponent::ResetMaxHealth()
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+		return;
+
+	// 원본값으로 복원
+	if (MaxHealth > 0)
+	{
+		MaxHealth = MaxHealth;
+		Health = FMath::Clamp(Health, 0, MaxHealth); 
+		MaxHealth = -1; // 초기화 
+	}
+}
+
 void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
 {
 	if (bIsDead) return;
@@ -167,6 +190,20 @@ void UAFAttributeComponent::SyncHealthToPlayerState()
 		);
 	}
 }
+
+void UAFAttributeComponent::ModifyMaxHealth(float Ratio)
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+		return;
+
+	MaxHealth = FMath::Max(1.f, MaxHealth * Ratio);
+
+	// 현재 체력도 비율 맞춰서 늘려주고 싶으면 아래 추가
+	Health = FMath::Min(Health * Ratio, MaxHealth);
+
+	
+}
+
 
 void UAFAttributeComponent::Multicast_NotifyDamage_Implementation(float Damage, FVector Location, AController* InstigatedBy, bool bIsCritical)
 {
