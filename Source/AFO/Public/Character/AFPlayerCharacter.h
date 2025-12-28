@@ -1,3 +1,5 @@
+// AFPlayerCharacter.h
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -231,6 +233,15 @@ protected:
 	void Multicast_PlayHitReact(EAFHitDir Dir);
 	EAFHitDir CalcHitDir(AActor* Attacker) const;
 
-	// AFPlayerCharacter.h
-	
+
+	// 이동속도 버프
+
+	protected:
+		// 캐릭터마다 다른 기본 속도를 저장
+		float DefaultMaxWalkSpeed;
+
+		FTimerHandle SpeedBuffTimerHandle;
+
+public:
+	void ApplySpeedBuff(float Multiplier, float Duration);
 };
