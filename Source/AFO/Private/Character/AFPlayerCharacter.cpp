@@ -1,3 +1,5 @@
+// AFPlayerCharacter.cpp
+
 #include "Character/AFPlayerCharacter.h"
 #include "Components/AFAttributeComponent.h"
 #include "Camera/CameraComponent.h"
@@ -126,6 +128,12 @@ void AAFPlayerCharacter::Multicast_PlaySkillQMontage_Implementation()
 void AAFPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// 생성 시점에 이 캐릭터의 고유 속도를 저장
+	if (GetCharacterMovement())
+	{
+		DefaultMaxWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+	}
 
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
@@ -876,6 +884,24 @@ EAFHitDir AAFPlayerCharacter::CalcHitDir(AActor* Attacker) const
 		return (F >= 0.f) ? EAFHitDir::Front : EAFHitDir::Back;
 	}
 	return (R >= 0.f) ? EAFHitDir::Right : EAFHitDir::Left;
+}
+
+void AAFPlayerCharacter::ApplySpeedBuff(float Multiplier, float Duration)
+{
+	if (!HasAuthority() || !GetCharacterMovement()) return;
+
+	// 기본 속도 기준 배수 적용
+	GetCharacterMovement()->MaxWalkSpeed = DefaultMaxWalkSpeed * Multiplier;
+
+	// 3. 복구 타이머
+	GetWorldTimerManager().SetTimer(SpeedBuffTimerHandle, [this]()
+		{
+			if (GetCharacterMovement())
+			{
+				GetCharacterMovement()->MaxWalkSpeed = DefaultMaxWalkSpeed;
+				UE_LOG(LogTemp, Log, TEXT("Speed Buff Expired!"));
+			}
+		}, Duration, false);
 }
 
 

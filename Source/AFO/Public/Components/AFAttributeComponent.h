@@ -6,6 +6,8 @@
 #include "Components/ActorComponent.h"
 #include "AFAttributeComponent.generated.h"
 
+class UNiagaraComponent;
+class UNiagaraSystem;
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnShieldChangedDelegate, float /*NewShield*/);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -29,6 +31,8 @@ protected:
 	//사망 상태 플래그
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Attribute")
 	bool bIsDead = false;
+
+
 
 public:
 	void ApplyDamage(float Damage, AController* InstigatedBy);
@@ -73,4 +77,29 @@ public:
 private:
 	FTimerHandle ShieldTimerHandle;
 	void OnShieldExpired(); // 지속시간 종료 시 호출
+
+
+
+protected:
+	// 공격력 배수 (기본값 1.0)
+	UPROPERTY(VisibleAnywhere, Category = "Attribute")
+	float AttackMultiplier = 1.0;
+
+	FTimerHandle AttackBuffTimerHandle;
+
+public:
+	// 외부(아이템)에서 호출할 함수
+	void ApplyAttackBuff(float Multiplier, float Duration);
+
+	// 현재 공격력 배수 반환 (데미지 계산 시 사용)
+	float GetAttackMultiplier() const { return AttackMultiplier; }
+
+public:
+	// 현재 활성화된 오오라 컴포넌트를 저장 (나중에 지우기 위해)
+	UPROPERTY()
+	UNiagaraComponent* ActiveAuraComponent;
+
+	// 오오라 생성/제거 함수 (서버에서 실행되어 멀티캐스트로 전파)
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ApplyAura(UNiagaraSystem* AuraSystem, FLinearColor Color, float Duration);
 };

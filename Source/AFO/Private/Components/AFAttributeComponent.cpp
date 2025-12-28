@@ -10,6 +10,8 @@
 #include "UI/AFFloatingDamageManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
 
 UAFAttributeComponent::UAFAttributeComponent()
 {
@@ -48,23 +50,44 @@ void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 		return;
 	}
 
-	// 보호막이 있는 경우 데미지에서 보호막 수치만큼 차감
+	float FinalDamage = Damage;
+
+	// 1. 공격자(InstigatedBy)의 버프 확인
+	if (InstigatedBy)
+	{
+		// 공격자의 PlayerState나 Character에서 AttributeComponent를 찾아 배수를 가져옴
+		if (APawn* InstigatorPawn = InstigatedBy->GetPawn())
+		{
+			if (UAFAttributeComponent* AttackerAttr = InstigatorPawn->FindComponentByClass<UAFAttributeComponent>())
+			{
+				// 공격자의 배수를 최종 데미지에 곱함
+				FinalDamage *= AttackerAttr->GetAttackMultiplier();
+			}
+		}
+	}
+
+	// 2. 보호막(Shield) 처리
 	if (CurrentShield > 0.f)
 	{
-		float DamageToShield = FMath::Min(CurrentShield, Damage);
+		float DamageToShield = FMath::Min(CurrentShield, FinalDamage);
 		CurrentShield -= DamageToShield;
-		Damage -= DamageToShield;
+		FinalDamage -= DamageToShield;
+
+		// UI 갱신용
 		OnRep_CurrentShield();
 	}
 
-	Health -= Damage;
-	Health = FMath::Clamp(Health, 0.f, MaxHealth);
+	// 3. 최종 체력 차감 (한 번만 수행)
+	if (FinalDamage > 0.f)
+	{
+		Health = FMath::Clamp(Health - FinalDamage, 0.f, MaxHealth);
+	}
 
-	UE_LOG(LogTemp, Warning, TEXT("[%s] HP: %f"), *GetOwner()->GetName(), Health);
+	UE_LOG(LogTemp, Warning, TEXT("[%s] FinalDamage: %f, Remaining HP: %f"), *GetOwner()->GetName(), FinalDamage, Health);
 
 
 	// InstigatedBy를 통해 '누가 때렸는지'를 판별하여 공격자/피격자 색상을 결정
-	Multicast_NotifyDamage(Damage, GetOwner()->GetActorLocation(), InstigatedBy, false);
+	Multicast_NotifyDamage(FinalDamage, GetOwner()->GetActorLocation(), InstigatedBy, false);
 
 
 
@@ -203,4 +226,62 @@ void UAFAttributeComponent::OnShieldExpired()
 void UAFAttributeComponent::OnRep_CurrentShield()
 {
 	OnShieldChanged.Broadcast(CurrentShield);
+}
+
+
+void UAFAttributeComponent::ApplyAttackBuff(float Multiplier, float Duration)
+{
+	if (GetOwnerRole() < ROLE_Authority) return;
+
+	AttackMultiplier = Multiplier;
+
+	// 기존 타이머가 있다면 초기화 (버프 시간 갱신)
+	GetWorld()->GetTimerManager().SetTimer(AttackBuffTimerHandle, [this]()
+		{
+			AttackMultiplier = 1.0f; // 원래대로 복구
+			UE_LOG(LogTemp, Log, TEXT("Attack Buff Expired!"));
+		}, Duration, false);
+}
+
+void UAFAttributeComponent::Multicast_ApplyAura_Implementation(UNiagaraSystem* AuraSystem, FLinearColor Color, float Duration)
+{
+	if (!AuraSystem || !GetOwner()) return;
+
+	// [중요] 기존 오오라 제거 로직을 별도로 분리
+	if (ActiveAuraComponent && ActiveAuraComponent->IsValidLowLevel())
+	{
+		ActiveAuraComponent->DestroyComponent();
+	}
+	ActiveAuraComponent = nullptr;
+
+// 오라 붙이기
+	ActiveAuraComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
+		AuraSystem,
+		GetOwner()->GetRootComponent(),
+		NAME_None,
+		FVector(0.f, 0.f, -90.f),
+		FRotator::ZeroRotator,
+		EAttachLocation::KeepRelativeOffset,
+		true
+	);
+
+	if (ActiveAuraComponent)
+	{
+		// 색상 적용 전후로 로그를 찍어 Alpha값 확인
+		ActiveAuraComponent->SetNiagaraVariableLinearColor(TEXT("User.BaseColor"), Color);
+		ActiveAuraComponent->Activate(true);
+
+		UE_LOG(LogTemp, Warning, TEXT("[%s] Aura Attached! Color Alpha: %f"), *GetOwner()->GetName(), Color.A);
+
+		// 타이머 로직
+		FTimerHandle AuraTimer;
+		TWeakObjectPtr<UNiagaraComponent> WeakComp = ActiveAuraComponent;
+		GetWorld()->GetTimerManager().SetTimer(AuraTimer, [WeakComp]()
+			{
+				if (WeakComp.IsValid())
+				{
+					WeakComp->DestroyComponent();
+				}
+			}, Duration, false);
+	}
 }

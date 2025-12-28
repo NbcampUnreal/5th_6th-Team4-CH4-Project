@@ -11,8 +11,8 @@ class UNiagaraComponent;
 UENUM(BlueprintType)
 enum class EBuffType : uint8
 {
-	Health      UMETA(DisplayName = "Health"),
-	AttackPower UMETA(DisplayName = "AttackPower"),
+	Heal      UMETA(DisplayName = "Heal"),
+	Attack UMETA(DisplayName = "Attack"),
 	Speed       UMETA(DisplayName = "Speed")
 };
 
@@ -37,8 +37,18 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Buff")
 	EBuffType BuffType;
 
-	UPROPERTY(EditAnywhere, Category = "Buff")
-	float BuffValue = 20.0f;
+	// 각각의 버프 수치와 버프 지속 시간
+	UPROPERTY(EditAnywhere, Category = "Buff | Settings")
+	float HealAmount = 100.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Buff | Settings")
+	float AttackMultiplier = 1.5f;
+
+	UPROPERTY(EditAnywhere, Category = "Buff | Settings")
+	float SpeedMultiplier = 1.3f;
+
+	UPROPERTY(EditAnywhere, Category = "Buff | Settings")
+	float BuffDuration = 10.0f;
 
 	UPROPERTY(VisibleAnywhere, Category = "Effects")
 	UNiagaraComponent* BuffEffect;
@@ -50,6 +60,20 @@ protected:
 	UFUNCTION()
 	void OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
+	// 나이아가라 시스템을 담을 변수
+	UPROPERTY(EditAnywhere, Category = "Effects")
+	class UNiagaraSystem* PickupEffect;
+
+	// 캐릭터에게 지속적으로 붙어있을 오오라 이펙트
+	UPROPERTY(EditAnywhere, Category = "Effects")
+	class UNiagaraSystem* AuraEffect;
+
+	// 사운드 파일을 담을 변수
+	UPROPERTY(EditAnywhere, Category = "Effects")
+	class USoundBase* PickupSound;
+
+	UFUNCTION(NetMulticast,Reliable)
+	void Multicast_PlayPickupEffects();
 public:
 	// 아이템 회전 등 연출용 Tick
 	virtual void Tick(float DeltaTime) override;
