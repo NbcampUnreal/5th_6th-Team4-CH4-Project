@@ -33,6 +33,9 @@ protected:
 public:
 	void ApplyDamage(float Damage, AController* InstigatedBy);
 
+	// 체력 변경 함수 선언
+	void ApplyHealthChange(int32 Value);
+
 protected:
 	// 사망 처리 분리
 	void HandleDeath(AController* InstigatedBy);

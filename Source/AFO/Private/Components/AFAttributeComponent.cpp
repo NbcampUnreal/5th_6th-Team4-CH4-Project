@@ -204,3 +204,13 @@ void UAFAttributeComponent::OnRep_CurrentShield()
 {
 	OnShieldChanged.Broadcast(CurrentShield);
 }
+
+void UAFAttributeComponent::ApplyHealthChange(int32 Value)
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+		return; // 서버에서만 체력 변경
+
+	const int32 OldHealth = Health;
+	Health = FMath::Clamp(Health + Value, 0, MaxHealth);
+	
+}
