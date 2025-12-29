@@ -45,6 +45,16 @@ void AAFPlayerController::BeginPlay()
 		return;
 	}
 
+	if (IsLocalController() && SkillMainWidgetClass)
+	{
+		SkillMainWidget = CreateWidget<UUserWidget>(this, SkillMainWidgetClass);
+		if (SkillMainWidget)
+		{
+			SkillMainWidget->AddToViewport();
+			UE_LOG(LogTemp, Warning, TEXT("SkillMain init!"));
+		}
+	}
+
 	if (IsLocalController())
 	{
 		if (IsValid(InGameWidgetClass))

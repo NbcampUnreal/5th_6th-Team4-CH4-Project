@@ -54,6 +54,12 @@ protected:
 	// === InGameUI ===  //
 
 
+	UPROPERTY(EditAnywhere, Category = "AF | UI")
+	TSubclassOf<UUserWidget> SkillMainWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> SkillMainWidget;
+
 
 	// �ΰ��� HUD ���� Ŭ����
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AFO|Widgets")
