@@ -3,66 +3,91 @@
 
 #include "Gimmick/AFItemSpawner.h"
 #include "Gimmick/AFBuffItem.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
+#include "DrawDebugHelpers.h"
 
 
 AAFItemSpawner::AAFItemSpawner()
 {
+    PrimaryActorTick.bCanEverTick = false;
+    bReplicates = true;
 }
 
 void AAFItemSpawner::BeginPlay()
 {
     Super::BeginPlay();
-    GetWorldTimerManager().SetTimer(SpawnTimerHandle, this, &AAFItemSpawner::SpawnRandomItem, SpawnInterval, true);
-}
-
-FVector AAFItemSpawner::GetRandomPointInAnnulus()
-{
-    float Angle = FMath::FRandRange(0.0f, 2.0f * PI);
-    float R = FMath::Sqrt(FMath::FRandRange(FMath::Square(InnerRadius), FMath::Square(OuterRadius)));
-
-    float X = R * FMath::Cos(Angle);
-    float Y = R * FMath::Sin(Angle);
-
-    FVector StartLocation = GetActorLocation() + FVector(X, Y, 500.0f); // 위에서 아래로 빔을 쏩니다.
-    FVector EndLocation = StartLocation - FVector(0.f, 0.f, 1000.f);
-
-    FHitResult HitResult;
-    FCollisionQueryParams Params;
-    Params.AddIgnoredActor(this);
-
-    // 라인트레이스를 쏴서 실제 나무 데크 바닥 높이를 찾습니다.
-    if (GetWorld()->LineTraceSingleByChannel(HitResult, StartLocation, EndLocation, ECC_Visibility, Params))
+    if (HasAuthority())
     {
-        return HitResult.Location + FVector(0.f, 0.f, 50.f); // 바닥에서 50cm 띄움
-    }
-
-    return StartLocation - FVector(0.f, 0.f, 480.f); // 실패 시 기본 높이
-}
-
-void AAFItemSpawner::SpawnRandomItem()
-{
-    if (ItemClasses.Num() == 0) return;
-
-    int32 RandomIndex = FMath::RandRange(0, ItemClasses.Num() - 1);
-    FVector SpawnLocation = GetRandomPointInAnnulus();
-
-    GetWorld()->SpawnActor<AAFBuffItem>(ItemClasses[RandomIndex], SpawnLocation, FRotator::ZeroRotator);
-}
-
-
-void AAFItemSpawner::Tick(float DeltaTime)
-{
-    Super::Tick(DeltaTime);
-
-    // 에디터 뷰포트에서 영역 시각화
-    if (bShowDebugVisuals)
-    {
-        FVector Center = GetActorLocation();
-
-        // 안쪽 원 (경기장 중앙 뚫린 영역) - 빨간색
-        DrawDebugCircle(GetWorld(), Center, InnerRadius, 100, FColor::Red, false, -1.f, 0, 5.f, FVector(0, 1, 0), FVector(1, 0, 0));
-
-        // 바깥쪽 원 (나무 데크 외곽) - 초록색
-        DrawDebugCircle(GetWorld(), Center, OuterRadius, 100, FColor::Green, false, -1.f, 0, 5.f, FVector(0, 1, 0), FVector(1, 0, 0));
+        GetWorldTimerManager().SetTimer(SpawnTimerHandle, this, &AAFItemSpawner::RefreshItems, SpawnInterval, true);
+        // 시작하자마자 첫 스폰
+        RefreshItems();
     }
 }
+
+void AAFItemSpawner::RefreshItems()
+{
+    ClearExistingItems();
+    SpawnRandomItems();
+}
+
+
+void AAFItemSpawner::ClearExistingItems()
+{
+    for (auto& Item : CurrentSpawnedItems)
+    {
+        if (IsValid(Item))
+        {
+            Item->Destroy();
+        }
+    }
+    CurrentSpawnedItems.Empty();
+}
+
+
+void AAFItemSpawner::SpawnRandomItems()
+{
+    // 방어적 코드: 등록된 클래스나 포인트가 부족하면 실행 안 함
+    if (ItemClasses.Num() == 0 || SpawnPoints.Num() < SpawnCount)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AFItemSpawner: 아이템 클래스나 스폰 포인트가 부족합니다!"));
+        return;
+    }
+
+    // 이번 턴에 사용할 포인트들과 클래스들을 복사 (비복원 추출을 위함)
+    TArray<TObjectPtr<AActor>> AvailablePoints = SpawnPoints;
+    TArray<TSubclassOf<AAFBuffItem>> AvailableClasses = ItemClasses;
+
+    for (int32 i = 0; i < SpawnCount; ++i)
+    {
+        if (AvailablePoints.Num() == 0 || AvailableClasses.Num() == 0) break;
+
+        // 1. 랜덤 포인트 선택 및 제거 (중복 위치 방지)
+        int32 PointIdx = FMath::RandRange(0, AvailablePoints.Num() - 1);
+        AActor* SelectedPoint = AvailablePoints[PointIdx];
+        AvailablePoints.RemoveAt(PointIdx);
+
+        // 2. 랜덤 아이템 클래스 선택 및 제거 (중복 아이템 종류 방지)
+        int32 ClassIdx = FMath::RandRange(0, AvailableClasses.Num() - 1);
+        TSubclassOf<AAFBuffItem> SelectedClass = AvailableClasses[ClassIdx];
+        AvailableClasses.RemoveAt(ClassIdx);
+
+        // 3. 스폰 (타겟 포인트의 위치와 회전값 그대로 사용)
+        if (SelectedPoint && SelectedClass)
+        {
+            FVector Location = SelectedPoint->GetActorLocation();
+            FRotator Rotation = SelectedPoint->GetActorRotation();
+
+            FActorSpawnParameters Params;
+            Params.Owner = this;
+            Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+            AAFBuffItem* NewItem = GetWorld()->SpawnActor<AAFBuffItem>(SelectedClass, Location, Rotation, Params);
+            if (NewItem)
+            {
+                CurrentSpawnedItems.Add(NewItem);
+            }
+        }
+    }
+}
+

@@ -75,7 +75,7 @@ void AAFMage::ServerRPC_SkillE_Implementation()
     AAFPlayerState* PS = GetPlayerState<AAFPlayerState>();
     if (PS && PS->ConsumeMana(SkillEManaCost))
     {
-
+        bIsUsingSkill = true;
         // 아군에게 보호막 부여 로직 실행
         ApplyShieldToAllies(E_Range, E_ShieldAmount);
 
@@ -102,6 +102,8 @@ void AAFMage::ServerRPC_SkillQ_Implementation()
         GetWorldTimerManager().SetTimer(TimerHandle_SkillQ, this, &AAFMage::ResetSkillQ, Q_CooldownTime, false);
 
         Multicast_PlaySkillQMontage();
+        LockMovement();
+        
     }
 }
 
@@ -229,17 +231,11 @@ void AAFMage::HandleOnCheckHit()
     // 3. Q 스킬 판정
     else if (Anim->Montage_IsPlaying(SkillQMontage))
     {
-        float CurrentPos = Anim->Montage_GetPosition(SkillQMontage);
-        if (CurrentPos > 1.4f)
-        {
-            HandleSkillHitCheck(Q_Radius, Q_Damage, 0.f); // 아까 만든 Mage용 함수 호출 (슬로우 없음)
-        }
-        else
-        {
-            HandleSkillHitCheck(Q_Radius * 0.5f, Q_Damage * 0.2f, 0.f);
+       
+            HandleSkillHitCheck(Q_Radius, Q_Damage, 0.f);
         }
     }
-}
+
 
 void AAFMage::Multicast_PlaySkillEMontage_Implementation()
 {
