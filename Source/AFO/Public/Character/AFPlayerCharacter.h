@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "InputAction.h"
 #include "Types/AFGameTypes.h"
+#include "Net/UnrealNetwork.h"
 #include "AFPlayerCharacter.generated.h"
 
 
@@ -272,7 +273,7 @@ public:
 		UPROPERTY(BlueprintReadOnly, Category = "AF | Stat")
 		FAFPlayerCharacterStatRow BaseStats;
 
-		UPROPERTY(BlueprintReadOnly, Category = "AF | Skill")
+		UPROPERTY(Replicated, BlueprintReadOnly, Category = "AF | Skill")
 		TArray<FAFSkillInfo> CharacterSkills;
 
 		// --- 초기화 함수 ---

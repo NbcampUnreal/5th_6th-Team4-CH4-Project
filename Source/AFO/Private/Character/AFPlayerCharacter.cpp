@@ -52,6 +52,7 @@ void AAFPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AAFPlayerCharacter, bIsAttacking);
+	DOREPLIFETIME(AAFPlayerCharacter, CharacterSkills);
 
 }
 
@@ -128,6 +129,11 @@ void AAFPlayerCharacter::Multicast_PlaySkillQMontage_Implementation()
 void AAFPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (!CharacterKey.IsNone())
+	{
+		InitializeCharacterData(CharacterKey.ToString());
+	}
 
 	if (!CharacterKey.IsNone())
 	{
