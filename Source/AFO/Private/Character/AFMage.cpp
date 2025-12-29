@@ -26,7 +26,6 @@ AAFMage::AAFMage()
     SkillQManaCost = 100.f;
 }
 
-
 void AAFMage::BeginPlay()
 {
 	Super::BeginPlay();
@@ -93,17 +92,18 @@ void AAFMage::ServerRPC_SkillQ_Implementation()
     if (PS && PS->ConsumeMana(SkillQManaCost))
     {
         bIsUsingSkill = true;
-        bCanUseSkillQ = false; // 쿨타임 시작
+        bCanUseSkillQ = false;
+        bQFxPlayed = false;
 
-        // Mage 버전의 판정 함수 호출 (여기서 슬로우 없이 대미지만 들어감)
-        HandleSkillHitCheck(Q_Radius, Q_Damage, 0.f);
-
-        // 쿨타임 타이머 설정
-        GetWorldTimerManager().SetTimer(TimerHandle_SkillQ, this, &AAFMage::ResetSkillQ, Q_CooldownTime, false);
+        GetWorldTimerManager().SetTimer(
+            TimerHandle_SkillQ,
+            this,
+            &AAFMage::ResetSkillQ,
+            Q_CooldownTime,
+            false
+        );
 
         Multicast_PlaySkillQMontage();
-        LockMovement();
-        
     }
 }
 
@@ -112,7 +112,6 @@ void AAFMage::HandleSkillHitCheck(float Radius, float Damage, float RotationOffs
 {
     if (!HasAuthority()) return;
 
-    // 1. 위치 계산 (부모 로직 참고하여 동일하게 구현)
     FVector SkillDirection = GetActorForwardVector().RotateAngleAxis(RotationOffset, FVector(0, 0, 1));
     FVector SphereLocation = GetActorLocation() + (SkillDirection * 150.f) + FVector(0, 0, 60.f);
 
@@ -121,7 +120,6 @@ void AAFMage::HandleSkillHitCheck(float Radius, float Damage, float RotationOffs
     FCollisionQueryParams Params;
     Params.AddIgnoredActor(this);
 
-    // 2. 충돌 판정
     bool bHit = GetWorld()->OverlapMultiByChannel(OverlapResults, SphereLocation, FQuat::Identity, ECC_Pawn, Sphere, Params);
 
     if (bHit)
@@ -129,22 +127,17 @@ void AAFMage::HandleSkillHitCheck(float Radius, float Damage, float RotationOffs
         for (const FOverlapResult& Result : OverlapResults)
         {
             AActor* HitActor = Result.GetActor();
-            if (HitActor && !IsAlly(HitActor)) // 적군일 때만
+            if (HitActor && !IsAlly(HitActor))
             {
-                // 대미지 적용
                 if (UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>())
                 {
                     Attr->ApplyDamage(Damage, GetController());
                 }
 
-                // 히트 리액션 재생
                 if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
                 {
                     Victim->TriggerHitReact_FromAttacker(this);
                 }
-
-                // ★ 여기에 슬로우 로직(ApplySlow)이 없으므로 슬로우가 걸리지 않습니다!
-                // 대신 Mage 전용 패시브(상대 마나 감소 등)를 여기에 넣을 수 있습니다.
             }
         }
     }
@@ -178,64 +171,201 @@ void AAFMage::ApplyShieldToAllies(float Radius, float Amount)
     }
 }
 
+void AAFMage::Multicast_SpawnHeavyEffectBP_Implementation(const FVector& SpawnLocation, const FRotator& SpawnRotation)
+{
+	if (!HeavyAttackEffectBP) return;
+
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	GetWorld()->SpawnActor<AActor>(HeavyAttackEffectBP, SpawnLocation, SpawnRotation, Params);
+}
+
+void AAFMage::Multicast_SpawnQEffectBP_Implementation(const FVector& SpawnLocation, const FRotator& SpawnRotation)
+{
+    if (!SkillQEffectBP) return;
+
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    GetWorld()->SpawnActor<AActor>(SkillQEffectBP, SpawnLocation, SpawnRotation, Params);
+}
+
+void AAFMage::Multicast_SpawnQEffectFollow_Implementation(AActor* TargetActor)
+{
+	if (!TargetActor || !SkillQEffectBP) return;
+
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	const FVector SpawnLoc = TargetActor->GetActorLocation() + Q_FollowOffset;
+
+	AActor* FX = GetWorld()->SpawnActor<AActor>(SkillQEffectBP, SpawnLoc, FRotator::ZeroRotator, Params);
+	if (!FX) return;
+
+	FX->AttachToComponent(
+		TargetActor->GetRootComponent(),
+		FAttachmentTransformRules::KeepWorldTransform
+	);
+}
+
+void AAFMage::SpawnHeavyFx_Server()
+{
+}
+
+AActor* AAFMage::FindQTarget()
+{
+	if (!GetWorld()) return nullptr;
+
+	TArray<FOverlapResult> Overlaps;
+	FCollisionShape Sphere = FCollisionShape::MakeSphere(Q_TargetSearchRadius);
+
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	const FVector Center = GetActorLocation();
+
+	if (!GetWorld()->OverlapMultiByChannel(Overlaps, Center, FQuat::Identity, ECC_Pawn, Sphere, Params))
+		return nullptr;
+
+	AActor* BestTarget = nullptr;
+	float BestScore = -1.f;
+
+	const FVector Forward = GetActorForwardVector();
+	const float CosLimit = FMath::Cos(FMath::DegreesToRadians(Q_TargetMaxAngleDeg));
+
+	for (const FOverlapResult& R : Overlaps)
+	{
+		AActor* A = R.GetActor();
+		if (!A || A == this) continue;
+		if (IsAlly(A)) continue; // 아군 제외
+
+		const FVector To = (A->GetActorLocation() - Center);
+		const float Dist = To.Size();
+		if (Dist <= KINDA_SMALL_NUMBER) continue;
+
+		const FVector Dir = To / Dist;
+		const float Dot = FVector::DotProduct(Forward, Dir);
+		if (Dot < CosLimit) continue; // 정면 각도 필터
+
+		// 점수: 정면(도트) 우선, 거리 조금 반영(가까울수록 가산)
+		const float Score = Dot * 1000.f + (1.f / Dist) * 200.f;
+
+		if (Score > BestScore)
+		{
+			BestScore = Score;
+			BestTarget = A;
+		}
+	}
+
+	return BestTarget;
+}
+
 // 통합 공격 로직
 void AAFMage::HandleOnCheckHit()
 {
-    if (!HasAuthority()) return;
+ if (!HasAuthority()) return;
 
-    UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-    if (!Anim) return;
+	UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!Anim) return;
 
-    // 1. 일반 공격(AttackMontage) 판정 시
-    if (Anim->Montage_IsPlaying(AttackMontage))
-    {
-        // Mage는 일반 공격 시 DealDamage 대신 직접 판정하여 마나를 깎음
-        // (DealDamage 로직을 복사해오되 마나 감소만 추가)
-        TArray<FOverlapResult> OverlapResults;
-        FCollisionShape Sphere = FCollisionShape::MakeSphere(100.f); // 기본 공격 범위
-        FVector TraceLocation = GetActorLocation() + GetActorForwardVector() * 100.f;
+	// 1) 일반 공격
+	if (Anim->Montage_IsPlaying(AttackMontage))
+	{
+		TArray<FOverlapResult> OverlapResults;
+		FCollisionShape Sphere = FCollisionShape::MakeSphere(100.f);
+		FVector TraceLocation = GetActorLocation() + GetActorForwardVector() * 100.f;
 
-        if (GetWorld()->OverlapMultiByChannel(OverlapResults, TraceLocation, FQuat::Identity, ECC_Pawn, Sphere))
-        {
-            for (auto& Result : OverlapResults)
-            {
-                AActor* HitActor = Result.GetActor();
-                if (HitActor && HitActor != this && !IsAlly(HitActor))
-                {
-                    // 대미지 입히기
-                    if (UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>())
-                    {
-                        Attr->ApplyDamage(AttackDamage, GetController());
-                    }
+		if (GetWorld()->OverlapMultiByChannel(OverlapResults, TraceLocation, FQuat::Identity, ECC_Pawn, Sphere))
+		{
+			for (auto& Result : OverlapResults)
+			{
+				AActor* HitActor = Result.GetActor();
+				if (HitActor && HitActor != this && !IsAlly(HitActor))
+				{
+					if (UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>())
+					{
+						Attr->ApplyDamage(AttackDamage, GetController());
+					}
 
-                    // ★ [Mage 전용] 상대방 마나 깎기
-                    if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
-                    {
-                        if (AAFPlayerState* VictimPS = Victim->GetPlayerState<AAFPlayerState>())
-                        {
-                            VictimPS->ConsumeMana(ManaBurnAmount);
-                            UE_LOG(LogTemp, Warning, TEXT("Mage Mana Burn! %f reduced"), ManaBurnAmount);
-                        }
-                        Victim->TriggerHitReact_FromAttacker(this);
-                    }
-                }
-            }
-        }
-    }
-    // 2. E 스킬 판정 (보호막은 이미 RPC에서 처리했으므로 공격 판정이 필요하다면 추가)
-    else if (Anim->Montage_IsPlaying(SkillEMontage))
-    {
-        // 보호막 외에 대미지 판정도 필요하다면 호출
-        // HandleSkillHitCheck(250.f, 40.f, 0.f); 
-    }
-    // 3. Q 스킬 판정
-    else if (Anim->Montage_IsPlaying(SkillQMontage))
-    {
-       
-            HandleSkillHitCheck(Q_Radius, Q_Damage, 0.f);
-        }
-    }
+					if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
+					{
+						if (AAFPlayerState* VictimPS = Victim->GetPlayerState<AAFPlayerState>())
+						{
+							VictimPS->ConsumeMana(ManaBurnAmount);
+							UE_LOG(LogTemp, Warning, TEXT("Mage Mana Burn! %f reduced"), ManaBurnAmount);
+						}
+						Victim->TriggerHitReact_FromAttacker(this);
+					}
+				}
+			}
+		}
+	}
+	// 2) E 스킬 판정(필요 시)
+	else if (Anim->Montage_IsPlaying(SkillEMontage))
+	{
+		// 필요하면 추가
+	}
+	// 3) Q 스킬 판정 + 이펙트
+	else if (Anim->Montage_IsPlaying(SkillQMontage))
+	{
+		float CurrentPos = Anim->Montage_GetPosition(SkillQMontage);
 
+		if (!bQFxPlayed && CurrentPos > 1.4f)
+		{
+			bQFxPlayed = true;
+
+			FVector FxBase = GetActorLocation() + GetActorForwardVector() * 150.f;
+
+			FHitResult Hit;
+			FVector TraceStart = FxBase + FVector(0,0,1000.f);
+			FVector TraceEnd   = FxBase - FVector(0,0,5000.f);
+
+			FVector FxLoc = FxBase;
+			if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility))
+			{
+				FxLoc = Hit.ImpactPoint;
+			}
+			Multicast_SpawnQEffectBP(FxLoc, FRotator::ZeroRotator);
+		}
+
+		if (CurrentPos > 1.4f)
+		{
+			HandleSkillHitCheck(Q_Radius, Q_Damage, 0.f);
+		}
+		else
+		{
+			HandleSkillHitCheck(Q_Radius * 0.5f, Q_Damage * 0.2f, 0.f);
+		}
+
+		const float QLength = SkillQMontage ? SkillQMontage->GetPlayLength() : 0.f;
+		if (QLength > 0.f && CurrentPos >= QLength - 0.1f)
+		{
+			bQFxPlayed = false;
+			bIsUsingSkill = false;
+		}
+	}
+	
+	else if (HeavyAttackMontage && Anim->Montage_IsPlaying(HeavyAttackMontage))
+	{
+		FVector FxBase =
+			GetActorLocation()
+			+ GetActorForwardVector() * Heavy_FxForward
+			+ FVector(0.f, 0.f, Heavy_FxUp);
+
+		FHitResult Hit;
+		FVector TraceStart = FxBase + FVector(0,0,Heavy_TraceStartUp);
+		FVector TraceEnd   = FxBase - FVector(0,0,5000.f);
+
+		FVector FxLoc = FxBase;
+		if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility))
+		{
+			FxLoc = Hit.ImpactPoint;
+		}
+
+		Multicast_SpawnHeavyEffectBP(FxLoc, FRotator::ZeroRotator);
+	}
+}
 
 void AAFMage::Multicast_PlaySkillEMontage_Implementation()
 {

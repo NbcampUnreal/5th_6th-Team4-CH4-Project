@@ -43,11 +43,7 @@ void UAFAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	
 	if (AAFPlayerCharacter* BaseChar = Cast<AAFPlayerCharacter>(OwnerCharacter))
 	{
-		/*if (AAFDarkKnight* DarkKnight = Cast<AAFDarkKnight>(BaseChar))
-		{
-			bIsSprinting = DarkKnight->bIsSprinting;
-		}
-		else*/ if (AAFMage* Mage = Cast<AAFMage>(BaseChar))
+        if (AAFMage* Mage = Cast<AAFMage>(BaseChar))
 		{
 			bIsSprinting = Mage->bIsSprinting;
 		}
