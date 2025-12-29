@@ -62,6 +62,8 @@ protected:
 	virtual void HandleOnCheckHit() override;
 
 	virtual void Multicast_PlaySkillEMontage_Implementation() override;
+
+
 	
 	virtual void Jump() override; // 점프 차단
 	virtual void StopJumping() override;
@@ -69,8 +71,6 @@ protected:
 	virtual void StopSprint(const FInputActionValue& Value) override;
 	virtual void Tick(float DeltaTime) override;
 
-	// Q 이펙트 1회 재생 가드
-	bool bQFxPlayed = false;
 
 public: 
 	// AimOffset 값
@@ -85,7 +85,8 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	
+
+
 	// 부모의 RPC를 오버라이드 (Implementation만 작성하면 됨)
 	virtual void ServerRPC_SkillE_Implementation() override;
 	virtual void ServerRPC_SkillQ_Implementation() override;
@@ -99,20 +100,13 @@ protected:
 	// 보호막 이펙트 멀티캐스트
 	UFUNCTION(NetMulticast, Unreliable)
 	void Multicast_PlayShieldEffect(AActor* TargetActor);
-	
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_SpawnQEffectBP(const FVector& SpawnLocation, const FRotator& SpawnRotation);
-
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_SpawnHeavyEffectBP(const FVector& SpawnLocation, const FRotator& SpawnRotation);
 
 	// 에디터에서 설정할 이펙트 에셋
 	UPROPERTY(EditAnywhere, Category = "Mage|Effects")
 	TObjectPtr<UNiagaraSystem> ShieldEffect;
 
-	UPROPERTY(EditAnywhere, Category = "Mage|Effects")
-	TSubclassOf<AActor> SkillQEffectBP;
 
-	UPROPERTY(EditAnywhere, Category = "Mage|Effects")
-	TSubclassOf<AActor> HeavyAttackEffectBP;
+
+
+
 };

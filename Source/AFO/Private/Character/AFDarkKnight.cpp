@@ -54,6 +54,8 @@ void AAFDarkKnight::EndQBuff()
 	{
 		Attr->ResetMaxHealth();
 	}
-	
+
+
 	bIsQBuffActive = false;
+	
 }
