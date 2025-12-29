@@ -5,7 +5,9 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputAction.h"
+#include "Types/AFGameTypes.h"
 #include "AFPlayerCharacter.generated.h"
+
 
 class UAFStatusEffectComponent;
 class USpringArmComponent;
@@ -244,4 +246,36 @@ protected:
 
 public:
 	void ApplySpeedBuff(float Multiplier, float Duration);
+
+
+
+
+
+
+
+	// 데이터 테이블
+
+	protected:
+		// --- 데이터 테이블 참조 ---
+
+			
+		UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AF | Data")
+		FName CharacterKey;
+
+		UPROPERTY(EditAnywhere, Category = "AF | Data")
+		TObjectPtr<class UDataTable> SkillDataTable;
+
+		UPROPERTY(EditAnywhere, Category = "AF | Data")
+		TObjectPtr<class UDataTable> StatDataTable;
+
+		// --- 로드된 데이터 저장 변수 ---
+		UPROPERTY(BlueprintReadOnly, Category = "AF | Stat")
+		FAFPlayerCharacterStatRow BaseStats;
+
+		UPROPERTY(BlueprintReadOnly, Category = "AF | Skill")
+		TArray<FAFSkillInfo> CharacterSkills;
+
+		// --- 초기화 함수 ---
+		/** 에디터에서 설정한 캐릭터 이름(RowName)을 기반으로 모든 정보를 로드합니다. */
+		void InitializeCharacterData(FString CharacterName);
 };

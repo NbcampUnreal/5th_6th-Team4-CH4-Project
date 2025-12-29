@@ -129,6 +129,11 @@ void AAFPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (!CharacterKey.IsNone())
+	{
+		InitializeCharacterData(CharacterKey.ToString());
+	}
+
 	// 생성 시점에 이 캐릭터의 고유 속도를 저장
 	if (GetCharacterMovement())
 	{
@@ -902,6 +907,56 @@ void AAFPlayerCharacter::ApplySpeedBuff(float Multiplier, float Duration)
 				UE_LOG(LogTemp, Log, TEXT("Speed Buff Expired!"));
 			}
 		}, Duration, false);
+}
+
+
+void AAFPlayerCharacter::InitializeCharacterData(FString CharacterName)
+{
+	// 캐릭터 이름이 비어있으면 실행하지 않음 (방어적 프로그래밍)
+	if (CharacterName.IsEmpty()) return;
+
+	static const FString ContextString(TEXT("Character Data Context"));
+
+	// 1. 캐릭터 기본 스탯 로드
+	if (StatDataTable)
+	{
+		FAFPlayerCharacterStatRow* FoundStat = StatDataTable->FindRow<FAFPlayerCharacterStatRow>(FName(*CharacterName), ContextString);
+		if (FoundStat)
+		{
+			BaseStats = *FoundStat;
+
+			// 이동 속도는 서버와 클라이언트 모두 동기화되어야 하므로 여기서 설정
+			if (GetCharacterMovement())
+			{
+				GetCharacterMovement()->MaxWalkSpeed = BaseStats.MoveSpeed;
+			}
+
+			UE_LOG(LogTemp, Log, TEXT("[%s] 스탯 로드 성공! HP: %f"), *CharacterName, BaseStats.MaxHp);
+		}
+	}
+
+	// 2. 캐릭터 스킬 5종 로드
+	if (SkillDataTable)
+	{
+		TArray<FString> Suffixes = { TEXT("Left"), TEXT("Right"), TEXT("Passive"), TEXT("Q"), TEXT("E") };
+		CharacterSkills.Empty();
+
+		for (const FString& Suffix : Suffixes)
+		{
+			FName SkillRowName = FName(*(CharacterName + TEXT("_") + Suffix));
+			FAFSkillInfo* FoundSkill = SkillDataTable->FindRow<FAFSkillInfo>(SkillRowName, ContextString);
+
+			if (FoundSkill)
+			{
+				CharacterSkills.Add(*FoundSkill);
+			}
+			else
+			{
+				// 데이터 테이블에 키가 없을 경우 로그를 남겨 기획 실수를 방지
+				UE_LOG(LogTemp, Warning, TEXT("[%s] 스킬 로드 실패! 데이터 테이블을 확인하세요."), *SkillRowName.ToString());
+			}
+		}
+	}
 }
 
 
