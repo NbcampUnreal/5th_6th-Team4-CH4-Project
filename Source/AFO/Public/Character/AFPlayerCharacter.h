@@ -121,7 +121,8 @@ protected:
 	UAnimMontage* HeavyAttackMontage;
 	
 	void InputHeavyAttack(const FInputActionValue& InValue);
-	
+
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadWrite)
 	bool bIsHeavyAttacking = false;
 	
 	UPROPERTY(EditDefaultsOnly, Category="Hit")
@@ -202,6 +203,12 @@ protected:
 
 	UFUNCTION(NetMulticast, Reliable)
 	virtual void Multicast_PlaySkillQMontage();
+	
+	UFUNCTION(Server, Reliable)
+	void ServerRPC_HeavyAttack();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayHeavyAttackMontage();
 	
 	// 이동 잠금
 	bool bMovementLocked = false;

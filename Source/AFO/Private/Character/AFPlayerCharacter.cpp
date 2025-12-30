@@ -53,7 +53,8 @@ void AAFPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 
 	DOREPLIFETIME(AAFPlayerCharacter, bIsAttacking);
 	DOREPLIFETIME(AAFPlayerCharacter, CharacterSkills);
-
+	DOREPLIFETIME(AAFPlayerCharacter, bIsUsingSkill);
+	DOREPLIFETIME(AAFPlayerCharacter, bIsHeavyAttacking);
 }
 
 void AAFPlayerCharacter::ServerRPC_SkillE_Implementation()
@@ -423,36 +424,27 @@ void AAFPlayerCharacter::HandleOnCheckHit()
 	UAnimMontage* CurrentMontage = Anim->GetCurrentActiveMontage();
 	if (!CurrentMontage) return;
 
-	// ★ 디버그 로그 추가: 현재 어떤 몽타주로 판정을 시도하는지 출력
 	UE_LOG(LogTemp, Log, TEXT("HandleOnCheckHit Called! Montage: %s"), *CurrentMontage->GetName());
 
 	FString MontageName = CurrentMontage->GetName();
 
-
-	// 현재 어떤 몽타주가 나오느냐에 따라 판정 범위와 대미지를 다르게 설정
-	if (Anim->Montage_IsPlaying(AttackMontage))
+	if (AttackMontage && Anim->Montage_IsPlaying(AttackMontage))
 	{
-		DealDamage(); // 기본 공격 (좁은 범위, 20 대미지)
+		DealDamage();
 	}
-	else if (Anim->Montage_IsPlaying(SkillEMontage))
-	{
-		HandleSkillHitCheck(250.f, 40.f, 0.f); // E 스킬 (중간 범위, 40 대미지)
-	}
-	else if (Anim->Montage_IsPlaying(SkillQMontage))
-	{
-		// ★ 다단 히트 로직: 현재 애니메이션 재생 시간을 확인하여 대미지 분기
-		float CurrentPos = Anim->Montage_GetPosition(SkillQMontage);
 
-		if (CurrentPos > 1.4f)
-		{
-			HandleSkillHitCheck(200.f, 30.f, 90.f); // 막타: 넓은 범위, 강한 대미지
-			UE_LOG(LogTemp, Warning, TEXT("Q Skill: Final Heavy Hit!"));
-		}
-		else
-		{
-			HandleSkillHitCheck(100.f, 10.f, 90.f); // 연타: 중간 범위, 약한 대미지
-			UE_LOG(LogTemp, Warning, TEXT("Q Skill: Multi Hit..."));
-		}
+	else if (HeavyAttackMontage && Anim->Montage_IsPlaying(HeavyAttackMontage))
+	{
+		HandleSkillHitCheck(180.f, 35.f, 0.f);
+	}
+
+	else if (SkillEMontage && Anim->Montage_IsPlaying(SkillEMontage))
+	{
+		HandleSkillHitCheck(250.f, 40.f, 0.f);
+	}
+	else if (SkillQMontage && Anim->Montage_IsPlaying(SkillQMontage))
+	{
+		HandleSkillHitCheck(320.f, 80.f, 0.f);
 	}
 }
 
@@ -582,6 +574,8 @@ void AAFPlayerCharacter::InputHeavyAttack(const FInputActionValue& InValue)
 		}
 		UnlockMovement();
 	}
+	
+	ServerRPC_HeavyAttack();
 }
 
 void AAFPlayerCharacter::Attack()
@@ -603,31 +597,37 @@ void AAFPlayerCharacter::DealDamage()
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
-
-	bool bHit = GetWorld()->OverlapMultiByChannel(
-		OverlapResults, Center, FQuat::Identity, ECC_Pawn, Sphere, Params
-	);
 	
-	if (bHit)
+	const bool bHit = GetWorld()->OverlapMultiByChannel
+	(
+	OverlapResults,
+	Center,
+	FQuat::Identity,
+	ECC_Pawn,
+	Sphere,
+	Params
+	);
+	/*bool bHit = GetWorld()->OverlapMultiByChannel(
+		OverlapResults, Center, FQuat::Identity, ECC_Pawn, Sphere, Params
+	);*/
+	
+	if (!bHit) return;
 	{
 		for (const FOverlapResult& Result : OverlapResults)
 		{
 			AActor* HitActor = Result.GetActor();
-			if (HitActor && HitActor != this)
-			{
-				// 3. 아군 체크 로직
-				if (IsAlly(HitActor)) continue;
+			if (!HitActor) continue;
+			if (HitActor == this) continue;
+			if (IsAlly(HitActor)) continue;
 
-				UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>();
-				if (Attr)
-				{
-					Attr->ApplyDamage(20.f, GetController());
-				}
-				
-				if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
-				{
-					Victim->TriggerHitReact_FromAttacker(this);
-				}
+			if (UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>())
+			{
+				Attr->ApplyDamage(20.f, GetController());
+			}
+
+			if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
+			{
+				Victim->TriggerHitReact_FromAttacker(this);
 			}
 		}
 	}
@@ -667,6 +667,48 @@ void AAFPlayerCharacter::MulticastPlayAttackMontage_Implementation()
 {
 	// 모든 클라이언트 (서버 포함)에서 모션을 재생
 	PlayAnimMontage(AttackMontage);
+}
+
+void AAFPlayerCharacter::ServerRPC_HeavyAttack_Implementation()
+{
+	if (GetCharacterMovement()->IsFalling()) return;
+	if (bIsUsingSkill) return;
+	if (!HeavyAttackMontage) return;
+
+	// 콤보(좌클릭) 중이면 강공격 막기
+	if (CurrentComboCount > 0 || bIsNowAttacking) return;
+
+	UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!Anim) return;
+
+	// 연타 재시작 방지
+	if (bIsHeavyAttacking) return;
+	if (Anim->Montage_IsPlaying(HeavyAttackMontage)) return;
+
+	bIsAttacking = true;
+	bIsHeavyAttacking = true;
+
+	Multicast_PlayHeavyAttackMontage();
+}
+
+void AAFPlayerCharacter::Multicast_PlayHeavyAttackMontage_Implementation()
+{
+	if (!HeavyAttackMontage) return;
+
+	bIsAttacking = true;
+	bIsHeavyAttacking = true;
+
+	LockMovement();
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->DisableMovement();
+	}
+
+	const float Len = PlayAnimMontage(HeavyAttackMontage);
+	UE_LOG(LogTemp, Warning, TEXT("HeavyAttack Multicast Play Len=%.3f Montage=%s"),
+		Len, *GetNameSafe(HeavyAttackMontage));
 }
 
 void AAFPlayerCharacter::LockMovement()
@@ -773,25 +815,16 @@ void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float R
 {
 	if (!HasAuthority()) return;
 
-	// 1. 캐릭터의 기본 전방 벡터
 	FVector Forward = GetActorForwardVector();
-
-	// 2. ★ 전방 벡터를 RotationOffset만큼 회전시킴
 	FVector SkillDirection = Forward.RotateAngleAxis(RotationOffset, FVector(0, 0, 1));
-
-	// 3. 캐릭터 위치에서 '회전된 방향'으로 Sphere를 배치
 	FVector SphereLocation = GetActorLocation() + (SkillDirection * 150.f) + FVector(0, 0, 60.f);
-
-	// 4. 디버그 구체 그리기 (위치가 맞는지 확인)
-	// DrawDebugSphere(GetWorld(), SphereLocation, Radius, 16, FColor::Cyan, false, 1.0f);
-
+	
 	TArray<FOverlapResult> OverlapResults;
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
-	// 5. 판정 실행
-	bool bHit = GetWorld()->OverlapMultiByChannel(
+	const bool bHit = GetWorld()->OverlapMultiByChannel(
 		OverlapResults,
 		SphereLocation,
 		FQuat::Identity,
@@ -800,33 +833,29 @@ void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float R
 		Params
 	);
 	
-	if (bHit) return;
+	if (!bHit) return;
+
+	for (const FOverlapResult& Result : OverlapResults)
 	{
-		for (auto& Result : OverlapResults)
+		AActor* HitActor = Result.GetActor();
+		if (!HitActor) continue;
+		if (HitActor == this) continue;
+		if (IsAlly(HitActor)) continue;
+
+		if (UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>())
 		{
-			AActor* HitActor = Result.GetActor();
-			if (HitActor)
-			{
-				if (HitActor == this) continue;     // 자기 자신 제외
-				if (IsAlly(HitActor)) continue;     // 아군 제외
-				
-				UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>();
-				if (Attr)
-				{
-					Attr->ApplyDamage(Damage, GetController());
-					UE_LOG(LogTemp, Warning, TEXT("Skill Hit! -> %s"), *HitActor->GetName());
-				}
-				
-				if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
-				{
-					Victim->TriggerHitReact_FromAttacker(this);
-				}
-				// 슬로우 적용 
-				if (UAFStatusEffectComponent* StatusComp = HitActor->FindComponentByClass<UAFStatusEffectComponent>())
-				{
-					StatusComp->ApplySlow(0.2f, 0.5f);
-				}
-			}
+			Attr->ApplyDamage(Damage, GetController());
+		}
+
+		if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
+		{
+			Victim->TriggerHitReact_FromAttacker(this);
+		}
+
+		// 슬로우 적용
+		if (UAFStatusEffectComponent* StatusComp = HitActor->FindComponentByClass<UAFStatusEffectComponent>())
+		{
+			StatusComp->ApplySlow(0.2f, 0.5f);
 		}
 	}
 }
