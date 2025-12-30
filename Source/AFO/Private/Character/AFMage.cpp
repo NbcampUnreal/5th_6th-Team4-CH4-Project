@@ -510,45 +510,45 @@ void AAFMage::LoadMageData()
 //
 //}
 
-void AAFMage::ServerRPC_HeavyAttack_Implementation()
-{
-
-	// 1. 서버에서 모든 조건 체크 (보안 및 동기화)
-	if (bIsUsingSkill || bIsHeavyAttacking) return;
-	if (!HeavyAttackMontage) return;
-
-
-
-	// 2. 서버 상태 업데이트
-	bIsAttacking = true;
-	bIsHeavyAttacking = true;
-
-	// 3. 쿨타임 시작 (데이터 테이블의 Cooldown 값 사용)
-	if (SkillComponent)
-	{
-		// HeavyAttackData.Cooldown 등 로드된 값을 사용하세요
-		SkillComponent->StartCooldown(TEXT("Mage_Right"), HeavyAttackData.Cooldown);
-	}
-
-	// 4. 이동 제어 (서버에서 먼저 적용)
-	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
-	{
-		MoveComp->StopMovementImmediately();
-		MoveComp->DisableMovement();
-	}
-
-	// 5. 모든 클라이언트에게 재생 명령
-	Multicast_PlayHeavyAttack();
-}
-
-void AAFMage::Multicast_PlayHeavyAttack_Implementation()
-{
-	// 로컬 클라이언트와 다른 모든 플레이어 화면에서 몽타주 재생
-	PlayAnimMontage(HeavyAttackMontage);
-
-	// 로컬 클라이언트에서 이동 제한 (예측성 처리)
-	if (IsLocallyControlled())
-	{
-		LockMovement();
-	}
-}
+//void AAFMage::ServerRPC_HeavyAttack_Implementation()
+//{
+//
+//	// 1. 서버에서 모든 조건 체크 (보안 및 동기화)
+//	if (bIsUsingSkill || bIsHeavyAttacking) return;
+//	if (!HeavyAttackMontage) return;
+//
+//
+//
+//	// 2. 서버 상태 업데이트
+//	bIsAttacking = true;
+//	bIsHeavyAttacking = true;
+//
+//	// 3. 쿨타임 시작 (데이터 테이블의 Cooldown 값 사용)
+//	if (SkillComponent)
+//	{
+//		// HeavyAttackData.Cooldown 등 로드된 값을 사용하세요
+//		SkillComponent->StartCooldown(TEXT("Mage_Right"), HeavyAttackData.Cooldown);
+//	}
+//
+//	// 4. 이동 제어 (서버에서 먼저 적용)
+//	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+//	{
+//		MoveComp->StopMovementImmediately();
+//		MoveComp->DisableMovement();
+//	}
+//
+//	// 5. 모든 클라이언트에게 재생 명령
+//	Multicast_PlayHeavyAttack();
+//}
+//
+//void AAFMage::Multicast_PlayHeavyAttack_Implementation()
+//{
+//	// 로컬 클라이언트와 다른 모든 플레이어 화면에서 몽타주 재생
+//	PlayAnimMontage(HeavyAttackMontage);
+//
+//	// 로컬 클라이언트에서 이동 제한 (예측성 처리)
+//	if (IsLocallyControlled())
+//	{
+//		LockMovement();
+//	}
+//}
