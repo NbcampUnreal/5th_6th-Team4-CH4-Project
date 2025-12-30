@@ -5,6 +5,7 @@
 #include "UI/AFRespawnWidget.h"
 #include "UI/AFKillLogContainer.h"
 #include "EnhancedInputComponent.h"
+#include "UI/AFSkillMainWidget.h"
 
 
 AAFPlayerController::AAFPlayerController()
@@ -47,11 +48,12 @@ void AAFPlayerController::BeginPlay()
 
 	if (IsLocalController() && SkillMainWidgetClass)
 	{
-		SkillMainWidget = CreateWidget<UUserWidget>(this, SkillMainWidgetClass);
+		// 형변환을 통해 생성하여 클래스 전용 함수들을 사용할 수 있게 합니다.
+		SkillMainWidget = CreateWidget<UAFSkillMainWidget>(this, SkillMainWidgetClass);
 		if (SkillMainWidget)
 		{
 			SkillMainWidget->AddToViewport();
-			UE_LOG(LogTemp, Warning, TEXT("SkillMain init!"));
+			UE_LOG(LogTemp, Warning, TEXT("@@@ [PC] SkillMain Initialized!"));
 		}
 	}
 
@@ -179,5 +181,22 @@ void AAFPlayerController::Client_ShowKillLog_Implementation(const FString& Kille
 	{
 		KillLogContainer->AddKillLog(KillerName, KillerColor, VictimName, VictimColor);
 		UE_LOG(LogTemp, Error, TEXT("Add kill log init!"));
+	}
+}
+
+
+void AAFPlayerController::RefreshSkillUI(UAFSkillComponent* InSkillComp)
+{
+	// SkillMainWidget2가 아닌, 위에서 생성한 SkillMainWidget을 사용해야 합니다.
+	if (SkillMainWidget && InSkillComp)
+	{
+		SkillMainWidget->UpdateAllSlotsComponent(InSkillComp);
+		UE_LOG(LogTemp, Warning, TEXT("@@@ [PC] Skill UI Refreshed with New Component!"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("@@@ [PC] Refresh Failed: Widget(%s), Comp(%s)"),
+			SkillMainWidget ? TEXT("Valid") : TEXT("NULL"),
+			InSkillComp ? TEXT("Valid") : TEXT("NULL"));
 	}
 }
