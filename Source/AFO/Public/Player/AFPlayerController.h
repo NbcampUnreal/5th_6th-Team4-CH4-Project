@@ -46,6 +46,10 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	UInputAction* HeavyAttackAction;
+
+
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void RefreshSkillUI(class UAFSkillComponent* InSkillComp);
 	
 protected:
 	virtual void BeginPlay() override;
@@ -53,12 +57,12 @@ protected:
 
 	// === InGameUI ===  //
 
+	UPROPERTY(BlueprintReadOnly, Category = "UI")
+	TObjectPtr<class UAFSkillMainWidget> SkillMainWidget;
+
 
 	UPROPERTY(EditAnywhere, Category = "AF | UI")
 	TSubclassOf<UUserWidget> SkillMainWidgetClass;
-
-	UPROPERTY()
-	TObjectPtr<UUserWidget> SkillMainWidget;
 
 
 	// �ΰ��� HUD ���� Ŭ����

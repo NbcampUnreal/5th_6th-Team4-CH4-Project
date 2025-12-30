@@ -42,5 +42,7 @@ public:
 
     // 캐릭터로부터 스킬 데이터를 받아 UI를 갱신하는 함수
     UFUNCTION(BlueprintCallable, Category = "AFO|UI")
-    void UpdateSkillSlots(const TArray<FAFSkillInfo>& CharacterSkills);
+    void UpdateSkillSlots(const TArray<FAFSkillInfo>& CharacterSkills, const TArray<FName>& SkillRowNames);
+
+    void UpdateAllSlotsComponent(class UAFSkillComponent* InSkillComp);
 };

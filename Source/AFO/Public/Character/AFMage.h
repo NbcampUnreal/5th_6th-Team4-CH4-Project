@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Character/AFPlayerCharacter.h"
+#include "Types/AFGameTypes.h"
 #include "AFMage.generated.h"
 
 class UNiagaraSystem;
@@ -16,7 +17,17 @@ class AFO_API AAFMage : public AAFPlayerCharacter
 public:
 	AAFMage();
 	
+
+
 protected:
+
+	/** --- 데이터 로드 로직 --- */
+	void LoadMageData();
+
+	// 스킬 컴포넌트를 저장할 멤버 변수 선언
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<class UAFSkillComponent> SkillComponent;
+
 	// Mage 전용 스킬 수치 (에디터에서 수정 가능)
 	UPROPERTY(EditAnywhere, Category = "Mage|Attack")  // 기본공격 데미지
 	float AttackDamage = 20.f;
@@ -104,6 +115,11 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 
 
+	// 내부적으로 사용할 스킬 데이터 캐싱 (매번 FindRow 방지)
+	FAFSkillInfo QSkillData;
+	FAFSkillInfo ESkillData;
+	FAFSkillInfo HeavyAttackData;
+
 public: 
 	// AimOffset 값
 	UPROPERTY(BlueprintReadOnly, Category="Aim")
@@ -118,6 +134,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	virtual void OnRep_PlayerState() override;
+
 	// Q 이펙트 1회 재생 가드
 	bool bQFxPlayed = false;
 	
@@ -126,6 +144,14 @@ protected:
 	// 부모의 RPC를 오버라이드 (Implementation만 작성하면 됨)
 	virtual void ServerRPC_SkillE_Implementation() override;
 	virtual void ServerRPC_SkillQ_Implementation() override;
+
+	//virtual void InputHeavyAttack(const FInputActionValue& InValue) override;
+	
+	UFUNCTION(Server, Reliable)
+	void ServerRPC_HeavyAttack();
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayHeavyAttack();
+
 
 	// Mage 전용 패시브를 위해 판정 함수 오버라이드
 	virtual void HandleSkillHitCheck(float Radius, float Damage, float RotationOffset) override;
@@ -152,4 +178,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Mage|Effects")
 	TSubclassOf<AActor> HeavyAttackEffectBP;
+
+
 };
