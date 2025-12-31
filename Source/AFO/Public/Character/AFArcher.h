@@ -66,6 +66,31 @@ protected:
 
 	// 핵심: 데미지/사거리 Archer 전용으로 분기
 	virtual void HandleOnCheckHit() override;
+	
+	// ===== Cooldown (Editor) =====
+	UPROPERTY(EditDefaultsOnly, Category="Cooldown|Archer")
+	float Archer_SkillECooldown = 8.f;
+	UPROPERTY(EditDefaultsOnly, Category="Cooldown|Archer")
+	float Archer_SkillQCooldown = 15.f;
+	
+	float NextSkillETime_Archer = 0.f;
+	float NextSkillQTime_Archer = 0.f;
+
+	// ===== Cooldown Runtime =====
+	bool bCanUseSkillE_Archer = true;
+	bool bCanUseSkillQ_Archer = true;
+
+	FTimerHandle TH_ArcherSkillE;
+	FTimerHandle TH_ArcherSkillQ;
+
+	UFUNCTION()
+	void ResetArcherSkillE() { bCanUseSkillE_Archer = true; }
+	UFUNCTION()
+	void ResetArcherSkillQ() { bCanUseSkillQ_Archer = true; }
+
+	// 아처가 직접 쿨타임을 막도록 RPC 오버라이드
+	virtual void ServerRPC_SkillE_Implementation() override;
+	virtual void ServerRPC_SkillQ_Implementation() override;
 
 private:
 	void ArcherDealDamage(float ForwardDistance, float Radius, float Damage);

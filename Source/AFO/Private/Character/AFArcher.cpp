@@ -64,6 +64,52 @@ void AAFArcher::HandleOnCheckHit()
 	}
 }
 
+void AAFArcher::ServerRPC_SkillE_Implementation()
+{
+	if (!HasAuthority()) return;
+
+	const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+
+	if (Now < NextSkillETime_Archer)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Archer] SkillE Cooldown. Remain=%.2f"),
+			NextSkillETime_Archer - Now);
+		return;
+	}
+
+	NextSkillETime_Archer = Now + Archer_SkillECooldown;
+
+	UE_LOG(LogTemp, Warning, TEXT("[Archer] SkillE Cast OK. Next=%.2f"), NextSkillETime_Archer);
+
+	if (bIsAttacking || bIsUsingSkill) return;
+	bIsUsingSkill = true;
+
+	Multicast_PlaySkillEMontage();
+}
+
+void AAFArcher::ServerRPC_SkillQ_Implementation()
+{
+	if (!HasAuthority()) return;
+
+	const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+
+	if (Now < NextSkillQTime_Archer)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Archer] SkillQ Cooldown. Remain=%.2f"),
+			NextSkillQTime_Archer - Now);
+		return;
+	}
+
+	NextSkillQTime_Archer = Now + Archer_SkillQCooldown;
+
+	UE_LOG(LogTemp, Warning, TEXT("[Archer] SkillQ Cast OK. Next=%.2f"), NextSkillQTime_Archer);
+
+	if (bIsAttacking || bIsUsingSkill) return;
+	bIsUsingSkill = true;
+
+	Multicast_PlaySkillQMontage();
+}
+
 void AAFArcher::ArcherDealDamage(float ForwardDistance, float Radius, float Damage)
 {
 	if (!HasAuthority()) return;
