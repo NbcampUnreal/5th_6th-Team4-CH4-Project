@@ -39,6 +39,7 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = USTitleWidget, Meta = (AllowPrivateAccess, BindWidget))
 	TObjectPtr<UButton> OptionButton;
 
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = USLobbyLevelUI, Meta = (AllowPrivateAccess, BindWidget))
 	TObjectPtr<UEditableText> ServerIPEditableText;
 
@@ -48,4 +49,13 @@ private:
 	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = USLobbyLevelUI, Meta = (AllowPrivateAccess, BindWidget))
 	//TObjectPtr<UEditableText> ServerIPEditableText;
 
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> OptionsWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> OptionsWidget;
+
+private:
+	void ShowOptions();
+	void HideOptions();
 };

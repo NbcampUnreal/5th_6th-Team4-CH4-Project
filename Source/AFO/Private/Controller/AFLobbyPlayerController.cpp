@@ -5,6 +5,8 @@
 #include "Game/AFCharacterSelectGameMode.h"
 #include "UObject/UObjectGlobals.h"
 #include "TimerManager.h"
+#include "Game/AFGameInstance.h"
+#include "Player/AFPlayerState.h"
 
 void AAFLobbyPlayerController::BeginPlay()
 {
@@ -41,6 +43,26 @@ void AAFLobbyPlayerController::ReceivedPlayer()
 
 	UE_LOG(LogTemp, Warning, TEXT("[UI] ReceivedPlayer -> EnsureUI"));
 	EnsureUI();
+
+	if (UAFGameInstance* GI = GetGameInstance<UAFGameInstance>())
+	{
+		const FString Name = GI->PendingPlayerName.TrimStartAndEnd();
+		if (!Name.IsEmpty())
+		{
+			ServerSetPlayerName(Name);
+		}
+	}
+}
+
+void AAFLobbyPlayerController::ServerSetPlayerName_Implementation(const FString& InName)
+{
+	if (AAFPlayerState* PS = GetPlayerState<AAFPlayerState>())
+	{
+		PS->SetPlayerName(InName);
+		PS->ForceNetUpdate();
+
+		UE_LOG(LogTemp, Warning, TEXT("[ServerSetPlayerName] %s"), *InName);
+	}
 }
 
 void AAFLobbyPlayerController::PostSeamlessTravel()

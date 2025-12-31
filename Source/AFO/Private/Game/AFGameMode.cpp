@@ -336,6 +336,8 @@ void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* 
 
 void AAFGameMode::EndRound()
 {
+	if (!HasAuthority()) return;
+
 	AAFGameState* GS = GetAFGameState();
 	if (!GS)
 	{
@@ -347,24 +349,26 @@ void AAFGameMode::EndRound()
 		GS->TeamRedKillScore,
 		GS->TeamBlueKillScore);
 
-	if (GS->TeamRedKillScore > GS->TeamBlueKillScore)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("RED TEAM WINS THE ROUND"));
-	}
-	else if (GS->TeamBlueKillScore > GS->TeamRedKillScore)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("BLUE TEAM WINS THE ROUND"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("DRAW ROUND"));
-	}
+	EAFTeamId WinnerTeam = EAFTeamId::None;
+	if (GS->TeamRedKillScore > GS->TeamBlueKillScore) WinnerTeam = EAFTeamId::Red;
+	else if (GS->TeamBlueKillScore > GS->TeamRedKillScore) WinnerTeam = EAFTeamId::Blue;
+
+	GS->SetMatchResult(WinnerTeam);
 
 	GS->SetGamePhase(EAFGamePhase::EAF_GameOver);
 
 	if (UWorld* World = GetWorld())
 	{
-		World->ServerTravel(TEXT("TitleMenu"));
+		FTimerHandle TravelHandle;
+		World->GetTimerManager().SetTimer(
+			TravelHandle,
+			FTimerDelegate::CreateLambda([World]()
+				{
+					World->ServerTravel(TEXT("TitleMenu"));
+				}),
+			5.0f,
+			false
+		);
 	}
 }
 

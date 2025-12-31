@@ -49,9 +49,13 @@ bool AAFCharacterSelectGameMode::RequestSelectCharacter(AController* Requester, 
 {
 	if (!HasAuthority() || !Requester) return false;
 
-	const bool bValidId = CharacterOptions.ContainsByPredicate([&](const FAFCharacterOption& O) { return O.Id == CharacterId; });
+	const FAFCharacterOption* Found =
+		CharacterOptions.FindByPredicate([&](const FAFCharacterOption& O)
+			{
+				return O.Id == CharacterId;
+			});
 
-	if (!bValidId) return false;
+	if (!Found) return false;
 
 	AAFPlayerState* PS = Requester->GetPlayerState<AAFPlayerState>();
 	if (!PS) return false;
@@ -60,6 +64,7 @@ bool AAFCharacterSelectGameMode::RequestSelectCharacter(AController* Requester, 
 		return false;
 
 	PS->SetSelectedCharacter_Server(CharacterId);
+	PS->SetSelectedCharacterName_Server(Found->DisplayName);
 	PS->SetReady_Server(false);
 
 	PS->ForceNetUpdate();

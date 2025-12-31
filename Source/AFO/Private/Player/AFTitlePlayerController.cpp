@@ -3,6 +3,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
 #include "Components/AudioComponent.h"
+#include "GenericPlatform/GenericPlatformHttp.h"
+#include "Game/AFGameInstance.h"
 
 void AAFTitlePlayerController::BeginPlay()
 {
@@ -33,7 +35,7 @@ void AAFTitlePlayerController::BeginPlay()
 		TitleBGMComponent = UGameplayStatics::SpawnSound2D(this, TitleBGM, 1.0f, 1.0f, 0.0f);
 		if (TitleBGMComponent)
 		{
-			TitleBGMComponent->bIsUISound = true; // 선택
+			TitleBGMComponent->bIsUISound = true;
 		}
 	}
 }
@@ -51,8 +53,18 @@ void AAFTitlePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AAFTitlePlayerController::JoinServer(const FString& InIPAddress, const FString& InPlayerName)
 {
-	const FString Trimmed = InIPAddress.TrimStartAndEnd();
-	const FString TrimmedName = InPlayerName.TrimStartAndEnd().IsEmpty() ? TEXT("DefaultPlayer") : InPlayerName;
+	FString IP = InIPAddress.TrimStartAndEnd();
+	FString Name = InPlayerName.TrimStartAndEnd();
+	if (Name.IsEmpty())
+	{
+		Name = TEXT("DefaultPlayer");
+	}
+
+	if (UAFGameInstance* GI = GetGameInstance<UAFGameInstance>())
+	{
+		GI->PendingPlayerName = Name;
+		GI->PendingServerIP = IP;
+	}
 
 	FInputModeGameOnly GameMode;
 	SetInputMode(GameMode);
@@ -70,23 +82,17 @@ void AAFTitlePlayerController::JoinServer(const FString& InIPAddress, const FStr
 		TitleBGMComponent = nullptr;
 	}
 
-	// 1. 로컬에서 방을 직접 팔 때 (Listen Server)
-	if (Trimmed.IsEmpty())
+	if (IP.IsEmpty())
 	{
 		const FString MapURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOTeamSelect");
-		const FString Options = FString::Printf(TEXT("listen?Name=%s"), *TrimmedName);
-
-		UGameplayStatics::OpenLevel(GetWorld(), FName(*MapURL), true, Options);
+		UGameplayStatics::OpenLevel(GetWorld(), FName(*MapURL), true, TEXT("listen"));
 		return;
 	}
 
-	// 2. 다른 서버에 접속할 때 (Client Travel)
-	const FString Address = FString::Printf(TEXT("%s:7777?Name=%s"), *Trimmed, *TrimmedName);
-
-	UE_LOG(LogTemp, Log, TEXT("Traveling to: %s"), *Address);
+	const FString Address = FString::Printf(TEXT("%s:7777"), *IP);
+	UE_LOG(LogTemp, Warning, TEXT("[JoinServer] Traveling to: %s (Name=%s)"), *Address, *Name);
 	ClientTravel(Address, TRAVEL_Absolute);
 }
-
 //void AAFTitlePlayerController::JoinServer()
 //{
 //	FName NextLevelName = FName(TEXT("AFOBattleZone"));

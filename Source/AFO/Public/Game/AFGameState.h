@@ -6,58 +6,74 @@
 #include "GameFramework/GameState.h"
 #include "AFGameState.generated.h"
 
-// 델리게이트 선언: 시간이 변경될 때마다 UI에게 알림
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTimerChangedDelegate, int32, NewRemainingTime);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPlayerArrayChangedDelegate);
 
-// GamePhase 정의
+// GamePhase (너 기존 그대로)
 UENUM(BlueprintType)
 enum class EAFGamePhase : uint8
 {
-	EAF_Title							UMETA(DisplayName = "Tilte"),
-	EAF_Loading					UMETA(DisplayName = "Loading"),
-	EAF_Lobby						UMETA(DisplayName = "Lobby"),
-	EAF_CharacterSelect		UMETA(DisplayName = "CharacterSelect	"),
-	EAF_InGame					UMETA(DisplayName = "InGame"),
-	EAF_GameOver				UMETA(DisplayName = "GameOver"),
+	EAF_Title            UMETA(DisplayName = "Title"),
+	EAF_Loading          UMETA(DisplayName = "Loading"),
+	EAF_Lobby            UMETA(DisplayName = "Lobby"),
+	EAF_CharacterSelect  UMETA(DisplayName = "CharacterSelect"),
+	EAF_InGame           UMETA(DisplayName = "InGame"),
+	EAF_GameOver         UMETA(DisplayName = "GameOver"),
 };
 
+UENUM(BlueprintType)
+enum class EAFTeamId : uint8
+{
+	Red  UMETA(DisplayName = "Red"),
+	Blue UMETA(DisplayName = "Blue"),
+	None UMETA(DisplayName = "None"),
+};
 
+USTRUCT(BlueprintType)
+struct FAFMatchResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	EAFTeamId WinnerTeam = EAFTeamId::None;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 RedKills = 0;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 BlueKills = 0;
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMatchResultChanged, const FAFMatchResult&, NewResult);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnGamePhaseChangedDelegate, EAFGamePhase, NewPhase);
 
 UCLASS()
 class AFO_API AAFGameState : public AGameState
 {
 	GENERATED_BODY()
-	
+
 public:
 	AAFGameState();
 
 	UPROPERTY(BlueprintAssignable, Category = "Networking")
 	FPlayerArrayChangedDelegate OnPlayerArrayChanged;
 
-	// 1. ReplicatedUsing 변수 선언: PlayerState 복제 상태를 추적합니다.
 	UPROPERTY(ReplicatedUsing = OnRep_TeamPlayerArray, VisibleAnywhere, Category = "Networking")
 	TArray<class AAFPlayerState*> TeamPlayerStatesReplicated;
 
-	// 2. RepNotify 함수 선언: 클라이언트에 PlayerState 배열이 복제 완료될 때마다 호출됩니다.
 	UFUNCTION()
 	void OnRep_TeamPlayerArray();
 
-	// 3. AddPlayerState 오버라이드 선언 (옵션: AGameStateBase에 이미 선언되어 있을 수 있으나 명확히 선언)
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
 
-
-
-	// UI가 구독할 델리게이트
 	UPROPERTY(BlueprintAssignable, Category = "AFO|Events")
 	FOnTimerChangedDelegate OnTimerChanged;
 
-	// 스코어 (킬 수)
 	UPROPERTY(ReplicatedUsing = OnRep_TeamScore, BlueprintReadOnly, Category = "AFO|Score")
-	int32 TeamRedKillScore;
+	int32 TeamRedKillScore = 0;
 
 	UPROPERTY(ReplicatedUsing = OnRep_TeamScore, BlueprintReadOnly, Category = "AFO|Score")
-	int32 TeamBlueKillScore;
+	int32 TeamBlueKillScore = 0;
 
 	UPROPERTY(ReplicatedUsing = OnRep_TeamScore, BlueprintReadOnly, Category = "AFO|Score")
 	int32 TeamRedDeathScore = 0;
@@ -68,55 +84,53 @@ public:
 	UFUNCTION()
 	void OnRep_TeamScore();
 
-public:
-	// 서버에서 호출하여 점수를 올릴 함수
+	UPROPERTY(BlueprintAssignable, Category = "AFO|Match")
+	FOnMatchResultChanged OnMatchResultChanged;
+
+	UPROPERTY(ReplicatedUsing = OnRep_MatchResult, BlueprintReadOnly, Category = "AFO|Match")
+	FAFMatchResult MatchResult;
+
+	UFUNCTION()
+	void OnRep_MatchResult();
+
+	void SetMatchResult(EAFTeamId WinnerTeam);
+
+	UFUNCTION(BlueprintPure, Category = "AFO|Match")
+	EAFTeamId GetWinnerTeam() const { return MatchResult.WinnerTeam; }
+
 	void AddTeamScore(uint8 TeamID, bool bIsKill);
 
+	UPROPERTY(BlueprintAssignable, Category = "AFO|Phase")
+	FOnGamePhaseChangedDelegate OnGamePhaseChanged;
+
+	UFUNCTION()
+	void OnRep_GamePhase();
 
 protected:
-
-
-	// 서버 타이머 핸들
 	FTimerHandle GameTimerHandle;
 
-	// 현재 게임 단계
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "AFO | Phase")
+	UPROPERTY(ReplicatedUsing = OnRep_GamePhase, BlueprintReadOnly, Category = "AFO|Phase")
 	EAFGamePhase CurrentGamePhase = EAFGamePhase::EAF_Title;
 
 private:
-	// === Replication ===
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	// 시간이 변경되면 호출됨 (클라이언트 + 서버 수동 호출)
 	UFUNCTION()
 	void OnRep_RemainingTime();
 
 public:
-
-	// 남은 시간
 	UPROPERTY(ReplicatedUsing = OnRep_RemainingTime, BlueprintReadOnly, Category = "AFO|Time")
-	int32 RemainingTimeSeconds = 300.f;
+	int32 RemainingTimeSeconds = 300;
 
-	// === Server Functions ===
-	// 타이머 시작 (GameMode에서 호출)
 	void StartGameTimer();
-
-	// 1초마다 호출될 함수
 	void UpdateTimer();
-
-	// === Server Authority Functions (GameMode에서 사용) ===
-
-	// 서버에서 남은 시간을 설정하는 함수
 	void SetRemainingTime(int32 NewTime);
-
-	// 서버에서 게임 단계를 변경하는 함수
 	void SetGamePhase(EAFGamePhase NewPhase);
 
-
-	// 남은 시간 & 현재 Phase 가져오기
 	UFUNCTION(BlueprintPure, Category = "AFO|Time")
 	int32 GetRemainingTimeSeconds() const { return RemainingTimeSeconds; }
 
 	UFUNCTION(BlueprintPure, Category = "AFO|Phase")
 	EAFGamePhase GetCurrentGamePhase() const { return CurrentGamePhase; }
 };
+
