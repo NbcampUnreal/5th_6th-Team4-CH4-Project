@@ -4,6 +4,9 @@
 #include "Engine/World.h"
 #include "GameFramework/GameState.h"
 #include "Controller/AFLobbyPlayerController.h"
+#include "Kismet/GameplayStatics.h"
+#include "GenericPlatform/GenericPlatformHttp.h"
+#include "GameFramework/PlayerState.h"
 
 AAFTeamSelectGameMode::AAFTeamSelectGameMode()
 {
@@ -20,9 +23,22 @@ void AAFTeamSelectGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
 
-	// 접속 즉시 자동배정(원하면 이 부분 제거하고 “미배정 팀”으로 시작해도 됨)
-	//const uint8 AutoTeam = (GetTeamCount(0) <= GetTeamCount(1)) ? 0 : 1;
-	//RequestSetTeam(NewPlayer, AutoTeam);
+	if (NewPlayer && NewPlayer->GetNetConnection() == nullptr && NewPlayer->PlayerState)
+	{
+		const FString HostName = UGameplayStatics::ParseOption(OptionsString, TEXT("Name"));
+		if (!HostName.IsEmpty())
+		{
+			NewPlayer->PlayerState->SetPlayerName(HostName);
+			NewPlayer->PlayerState->ForceNetUpdate();
+		}
+	}
+
+	if (NewPlayer && NewPlayer->PlayerState)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[PostLogin] PSName='%s' PlayerId=%d"),
+			*NewPlayer->PlayerState->GetPlayerName(),
+			NewPlayer->PlayerState->GetPlayerId());
+	}
 
 	UpdateLobbyCounts();
 }
@@ -141,4 +157,25 @@ bool AAFTeamSelectGameMode::AdvanceToCharacterSelect()
 
 	GetWorld()->ServerTravel(CharacterSelectMapURL, true);
 	return true;
+}
+
+FString AAFTeamSelectGameMode::InitNewPlayer(APlayerController* NewPlayerController,
+	const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
+{
+	const FString Error = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
+
+	UE_LOG(LogTemp, Warning, TEXT("[InitNewPlayer] Options='%s'"), *Options);
+
+	const FString RawName = UGameplayStatics::ParseOption(Options, TEXT("Name"));
+	const FString DecodedName = FGenericPlatformHttp::UrlDecode(RawName);
+
+	UE_LOG(LogTemp, Warning, TEXT("[InitNewPlayer] Parsed Name='%s'"), *DecodedName);
+
+	if (!DecodedName.IsEmpty() && NewPlayerController && NewPlayerController->PlayerState)
+	{
+		NewPlayerController->PlayerState->SetPlayerName(DecodedName);
+		NewPlayerController->PlayerState->ForceNetUpdate();
+	}
+
+	return Error;
 }

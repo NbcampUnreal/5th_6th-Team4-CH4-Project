@@ -14,6 +14,13 @@ class AFO_API UUW_TeamSelect : public UUserWidget
 {
 	GENERATED_BODY()
 
+public:
+	UFUNCTION()
+	void OnAnyPlayerNameChanged(AAFPlayerState* ChangedPS);
+
+	void BindPlayerDelegates();
+
+
 protected:
 	virtual void NativeConstruct() override;
 

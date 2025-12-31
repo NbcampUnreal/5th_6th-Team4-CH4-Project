@@ -2,12 +2,14 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Game/AFGameState.h"
 #include "AFPlayerController.generated.h"
 
 class UInputMappingContext;
 class UInputAction;
 class UAFInGameWidget;  	// InGameUI
 class UAFESCWidget;          	// InGameUI
+class UAFScoreboardWidget;
 
 UCLASS()
 class AFO_API AAFPlayerController : public APlayerController
@@ -51,8 +53,35 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void RefreshSkillUI(class UAFSkillComponent* InSkillComp);
 	
+
+	
 protected:
 	virtual void BeginPlay() override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UAFScoreboardWidget> ScoreboardWidgetClass;
+
+	UPROPERTY()
+	UAFScoreboardWidget* ScoreboardWidget;
+
+	UFUNCTION()
+	void TryBindGameState();
+
+	UFUNCTION()
+	void OnMatchResultChanged(const FAFMatchResult& NewResult);
+
+	UFUNCTION()
+	void OnGamePhaseChanged(EAFGamePhase NewPhase);
+
+	UFUNCTION()
+	void OnPlayerArrayChanged();
+
+	UFUNCTION()
+	void OnTimerChanged(int32 NewRemainingTime);
+
+	bool bScoreboardShown = false;
+
+	void ShowScoreboardIfNeeded();
 
 
 	// === InGameUI ===  //

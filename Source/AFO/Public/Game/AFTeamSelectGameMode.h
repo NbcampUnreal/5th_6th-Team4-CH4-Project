@@ -18,6 +18,9 @@ public:
 	bool RequestSetTeam(AController* Requester, uint8 NewTeamId);
 	bool CanAdvanceToCharacterSelect() const;
 	bool AdvanceToCharacterSelect();
+	virtual FString InitNewPlayer(APlayerController* NewPlayerController,
+		const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal) override;
+
 
 private:
 	int32 GetTeamCount(uint8 TeamId) const;

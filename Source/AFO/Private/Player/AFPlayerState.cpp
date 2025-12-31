@@ -35,6 +35,7 @@ void AAFPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AAFPlayerState, bIsDead);
 	DOREPLIFETIME(AAFPlayerState, SelectedCharacterId);
 	DOREPLIFETIME(AAFPlayerState, bReady);
+	DOREPLIFETIME(AAFPlayerState, SelectedCharacterName);
 }
 
 void AAFPlayerState::CopyProperties(APlayerState* PlayerState)
@@ -43,12 +44,23 @@ void AAFPlayerState::CopyProperties(APlayerState* PlayerState)
 
 	if (AAFPlayerState* NewPS = Cast<AAFPlayerState>(PlayerState))
 	{
+		NewPS->SetPlayerName(GetPlayerName());
 		NewPS->TeamID = TeamID;
 		NewPS->TeamIndex = TeamIndex;
 		NewPS->SelectedCharacterId = SelectedCharacterId;
+		NewPS->SelectedCharacterName = SelectedCharacterName;
 		NewPS->bReady = bReady;
-		UE_LOG(LogTemp, Warning, TEXT("CopyProperties: OldTeam=%d -> NewPS Team Set!"), TeamID);
+
+		NewPS->KillCount = KillCount;
+		NewPS->DeathCount = DeathCount;
 	}
+}
+
+
+void AAFPlayerState::OnRep_PlayerName()
+{
+	Super::OnRep_PlayerName();
+	OnPlayerNameChanged.Broadcast(this);
 }
 
 void AAFPlayerState::OverrideWith(APlayerState* PlayerState)
@@ -93,10 +105,11 @@ void AAFPlayerState::OnRep_IsDead()
 	// 여기다가 UI 갱신
 }
 
-void AAFPlayerState::OnRep_SelectedCharacter() 
+void AAFPlayerState::OnRep_SelectedCharacter()
 {
-	/* UI 갱신 가능 */ 
+	OnSelectedCharacterChanged.Broadcast(this);
 }
+
 void AAFPlayerState::OnRep_Ready()
 {
 
@@ -230,6 +243,21 @@ void AAFPlayerState::ResetLobbySelection_Server()
 	OnRep_Ready();
 }
 
+FText AAFPlayerState::GetSelectedCharacterName() const
+{
+	if (!SelectedCharacterName.IsEmpty())
+	{
+		return SelectedCharacterName;
+	}
+
+	if (HasSelectedCharacter() && CharacterDisplayNames.IsValidIndex(SelectedCharacterId))
+	{
+		return CharacterDisplayNames[SelectedCharacterId];
+	}
+
+	return FText::FromString(TEXT("Unknown"));
+}
+
 void AAFPlayerState::AddMana(float Amount)
 {
 	if (!HasAuthority()) return;
@@ -250,12 +278,15 @@ bool AAFPlayerState::ConsumeMana(float Amount)
 	return true;
 }
 
+void AAFPlayerState::OnRep_SelectedCharacterName()
+{
+	OnSelectedCharacterChanged.Broadcast(this);
+}
 
 
-
-
-
-
-
-
-
+void AAFPlayerState::SetSelectedCharacterName_Server(const FText& InName)
+{
+	if (!HasAuthority()) return;
+	SelectedCharacterName = InName;
+	OnRep_SelectedCharacterName();
+}

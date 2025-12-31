@@ -150,10 +150,10 @@ protected:
 
 	//virtual void InputHeavyAttack(const FInputActionValue& InValue) override;
 	
-	//UFUNCTION(Server, Reliable)
-	//void ServerRPC_HeavyAttack();
-	//UFUNCTION(NetMulticast, Unreliable)
-	//void Multicast_PlayHeavyAttack();
+	// virtual void ServerRPC_HeavyAttack_Implementation() override;
+
+	// UFUNCTION(NetMulticast, Unreliable)
+	// void Multicast_PlayHeavyAttack();
 
 
 	// Mage 전용 패시브를 위해 판정 함수 오버라이드

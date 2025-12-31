@@ -37,6 +37,9 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientShowMessage(const FString& Msg);
 
+	UFUNCTION(Server, Reliable)
+	void ServerSetPlayerName(const FString& InName);
+
 private:
 	void EnsureUI();
 	void SetupUIForCurrentMap();

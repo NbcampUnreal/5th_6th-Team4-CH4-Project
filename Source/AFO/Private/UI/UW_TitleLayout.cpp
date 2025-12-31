@@ -2,6 +2,8 @@
 #include "Components/Button.h"
 #include "Components/EditableText.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Blueprint/UserWidget.h"
+#include "GameFramework/PlayerController.h"
 #include "Player/AFTitlePlayerController.h"
 
 UUW_TitleLayout::UUW_TitleLayout(const FObjectInitializer& ObjectInitializer)
@@ -69,5 +71,61 @@ void UUW_TitleLayout::OnExitButtonClicked()
 
 void UUW_TitleLayout::OnOptionButtonClicked()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Option Button Clicked!"));
+	if (OptionsWidget && OptionsWidget->IsInViewport())
+	{
+		HideOptions();
+	}
+	else
+	{
+		ShowOptions();
+	}
+}
+
+void UUW_TitleLayout::ShowOptions()
+{
+	APlayerController* PC = GetOwningPlayer();
+	if (!IsValid(PC)) return;
+
+	if (!OptionsWidget)
+	{
+		if (!OptionsWidgetClass)
+		{
+			UE_LOG(LogTemp, Error, TEXT("[Options] OptionsWidgetClass is NULL. Set it in WBP_TitleLayout."));
+			return;
+		}
+
+		OptionsWidget = CreateWidget<UUserWidget>(PC, OptionsWidgetClass);
+		if (!OptionsWidget)
+		{
+			UE_LOG(LogTemp, Error, TEXT("[Options] CreateWidget failed."));
+			return;
+		}
+	}
+
+	OptionsWidget->AddToViewport(100);
+
+	FInputModeGameAndUI Mode;
+	Mode.SetHideCursorDuringCapture(false);
+	Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	Mode.SetWidgetToFocus(OptionsWidget->TakeWidget());
+	PC->SetInputMode(Mode);
+	PC->bShowMouseCursor = true;
+}
+
+void UUW_TitleLayout::HideOptions()
+{
+	APlayerController* PC = GetOwningPlayer();
+	if (!IsValid(PC)) return;
+
+	if (OptionsWidget)
+	{
+		OptionsWidget->RemoveFromParent();
+	}
+
+	FInputModeGameAndUI Mode;
+	Mode.SetHideCursorDuringCapture(false);
+	Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	Mode.SetWidgetToFocus(this->TakeWidget());
+	PC->SetInputMode(Mode);
+	PC->bShowMouseCursor = true;
 }

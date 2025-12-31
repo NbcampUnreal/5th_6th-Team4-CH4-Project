@@ -24,29 +24,42 @@ void UUW_TeamSelect::TryBindGameState()
 {
 	if (bBound) return;
 
-	AAFLobbyGameState* LGS = GetWorld() ? GetWorld()->GetGameState<AAFLobbyGameState>() : nullptr;
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	AAFLobbyGameState* LGS = World->GetGameState<AAFLobbyGameState>();
 	if (!LGS)
 	{
-		GetWorld()->GetTimerManager().SetTimer(BindRetryHandle, this, &ThisClass::TryBindGameState, 0.2f, true);
+		World->GetTimerManager().SetTimer(BindRetryHandle, this, &ThisClass::TryBindGameState, 0.2f, true);
 		return;
 	}
 
-	LGS->OnCountsChanged.AddDynamic(this, &ThisClass::RefreshUI);
-
-	if (AGameStateBase* GS = GetWorld()->GetGameState())
-	{
-		for (APlayerState* PS : GS->PlayerArray)
-		{
-			if (AAFPlayerState* AFPS = Cast<AAFPlayerState>(PS))
-			{
-				AFPS->OnTeamInfoChanged.AddDynamic(this, &ThisClass::OnAnyPlayerTeamChanged);
-			}
-		}
-	}
+	LGS->OnCountsChanged.AddUniqueDynamic(this, &ThisClass::RefreshUI);
 
 	bBound = true;
-	GetWorld()->GetTimerManager().ClearTimer(BindRetryHandle);
+	World->GetTimerManager().ClearTimer(BindRetryHandle);
 
+	BindPlayerDelegates();
+	RefreshUI();
+}
+
+void UUW_TeamSelect::BindPlayerDelegates()
+{
+	AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	if (!GS) return;
+
+	for (APlayerState* PS : GS->PlayerArray)
+	{
+		AAFPlayerState* AFPS = Cast<AAFPlayerState>(PS);
+		if (!AFPS) continue;
+
+		AFPS->OnTeamInfoChanged.AddUniqueDynamic(this, &ThisClass::OnAnyPlayerTeamChanged);
+		AFPS->OnPlayerNameChanged.AddUniqueDynamic(this, &ThisClass::OnAnyPlayerNameChanged);
+	}
+}
+
+void UUW_TeamSelect::OnAnyPlayerNameChanged(AAFPlayerState* ChangedPS)
+{
 	RefreshUI();
 }
 
@@ -76,6 +89,8 @@ void UUW_TeamSelect::OnClickNext()
 
 void UUW_TeamSelect::RefreshUI()
 {
+	BindPlayerDelegates();
+
 	AAFLobbyGameState* LGS = GetWorld() ? GetWorld()->GetGameState<AAFLobbyGameState>() : nullptr;
 	if (!LGS) return;
 

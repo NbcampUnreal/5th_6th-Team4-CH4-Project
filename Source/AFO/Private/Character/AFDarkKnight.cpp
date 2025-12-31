@@ -5,6 +5,7 @@
 void AAFDarkKnight::BeginPlay()
 {
 	Super::BeginPlay();
+	
 }
 
 void AAFDarkKnight::ApplyPassiveBleed(AActor* Target)
