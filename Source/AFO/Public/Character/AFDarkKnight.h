@@ -48,6 +48,8 @@ protected:
 	UPROPERTY(EditAnywhere, Category="DarkKnight|Skill Q|Buff")
 	float QBuffMultiplier = 1.05f;
 
+	
+
 private:
 	FTimerHandle QBuffTimer;
 	FTimerHandle QChargeDelayTimer;
