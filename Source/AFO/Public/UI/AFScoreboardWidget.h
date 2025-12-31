@@ -7,6 +7,7 @@
 
 class UScrollBox;
 class UTextBlock;
+class UImage;
 class UAFScoreboardRowWidget;
 
 UCLASS()
@@ -15,7 +16,6 @@ class AFO_API UAFScoreboardWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	// PC에서 호출
 	UFUNCTION()
 	void SetMatchResult(const FAFMatchResult& InResult);
 
@@ -30,6 +30,7 @@ protected:
 
 private:
 	void RefreshResultText();
+	void RefreshWinnerImages();
 
 private:
 	FAFMatchResult CachedResult;
@@ -37,19 +38,41 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Scoreboard")
 	TSubclassOf<UAFScoreboardRowWidget> RowWidgetClass;
 
-private:
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "Scoreboard", meta = (AllowPrivateAccess = "true"))
+	// === Wrapper ScrollBox (디자이너 구조 유지용) : 안 써도 되지만 있어도 됨 ===
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UScrollBox> SB_Red;
 
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "Scoreboard", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UScrollBox> SB_Blue;
 
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "Scoreboard", meta = (AllowPrivateAccess = "true"))
+	// === 실제로 Row가 들어갈 곳 (Top/Bottom) ===
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UScrollBox> SB_RedTop;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UScrollBox> SB_RedBottom;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UScrollBox> SB_BlueTop;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UScrollBox> SB_BlueBottom;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UTextBlock> TB_RedTotalKills;
 
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "Scoreboard", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UTextBlock> TB_BlueTotalKills;
 
-	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "Scoreboard", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UTextBlock> TB_Result;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UImage> Win_Image;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UImage> Red_Image;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UImage> Blue_Image;
 };
