@@ -70,8 +70,11 @@ protected:
 	
 	UPROPERTY(EditAnywhere, Category="Mage|Heavy Attack|FX")
 	float Heavy_FxDelay = 0.35f; // 강공격 이펙트가 터지는 타이밍(몽타주 임팩트 프레임에 맞추기)
+	
+	bool bWasHeavyMontagePlaying = false;
 
 	FTimerHandle TimerHandle_HeavyFx;
+	FTimerHandle TimerHandle_HeavyReset;
 
 	UFUNCTION()
 	void SpawnHeavyFx_Server(); // 서버에서 위치 계산 후 멀티캐스트 호출
@@ -179,5 +182,6 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Mage|Effects")
 	TSubclassOf<AActor> HeavyAttackEffectBP;
 
-
+	UPROPERTY(EditAnywhere, Category = "Mage|Effects")
+	TObjectPtr<UNiagaraSystem> HeavyAttackEffectNS;
 };

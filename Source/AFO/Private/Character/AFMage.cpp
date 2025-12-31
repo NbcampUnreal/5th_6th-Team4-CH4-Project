@@ -28,6 +28,12 @@ AAFMage::AAFMage()
     SkillQManaCost = 100.f;
 
 	SkillComponent = CreateDefaultSubobject<UAFSkillComponent>(TEXT("SkillComponent"));
+	
+	UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (Anim && HeavyAttackMontage && !Anim->Montage_IsPlaying(HeavyAttackMontage))
+	{
+		bHeavyFxPlayed = false;
+	}
 }
 
 void AAFMage::BeginPlay()
@@ -49,7 +55,38 @@ void AAFMage::Tick(float DeltaTime)
 	AimYaw   = DeltaRot.Yaw;
 	AimPitch = FMath::Clamp(DeltaRot.Pitch, -90.f, 90.f);
 	AimAlpha = 1.f;
+	
+	UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (Anim && HeavyAttackMontage)
+	{
+		const bool bNowHeavyPlaying = Anim->Montage_IsPlaying(HeavyAttackMontage);
+
+		// (중요) 강공격이 새로 시작되는 프레임에 1회 가드 리셋
+		if (bNowHeavyPlaying && !bWasHeavyMontagePlaying)
+		{
+			bHeavyFxPlayed = false;
+		}
+
+		// (중요) 강공격이 끝나는 프레임에 상태 플래그/이동 복구
+		if (!bNowHeavyPlaying && bWasHeavyMontagePlaying)
+		{
+			bHeavyFxPlayed = false;
+
+			// 부모에서 강공격 상태를 잠갔을 가능성까지 같이 풀어줌
+			bIsHeavyAttacking = false;
+			bIsAttacking = false;
+			bIsUsingSkill = false;
+
+			if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+			{
+				MoveComp->SetMovementMode(MOVE_Walking);
+			}
+		}
+
+		bWasHeavyMontagePlaying = bNowHeavyPlaying;
+	}
 }
+
 #pragma region Movement
 void AAFMage::StartSprint(const FInputActionValue& Value)
 {
@@ -204,12 +241,26 @@ void AAFMage::ApplyShieldToAllies(float Radius, float Amount)
 
 void AAFMage::Multicast_SpawnHeavyEffectBP_Implementation(const FVector& SpawnLocation, const FRotator& SpawnRotation)
 {
-	if (!HeavyAttackEffectBP) return;
+	UWorld* World = GetWorld();
+	if (!World) return;
 
-	FActorSpawnParameters Params;
-	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	UE_LOG(LogTemp, Warning, TEXT("[Mage Heavy FX] Multicast called. BP=%s, NS=%s"),
+		HeavyAttackEffectBP ? TEXT("Valid") : TEXT("Null"),
+		HeavyAttackEffectNS ? TEXT("Valid") : TEXT("Null"));
 
-	GetWorld()->SpawnActor<AActor>(HeavyAttackEffectBP, SpawnLocation, SpawnRotation, Params);
+	if (HeavyAttackEffectBP)
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		World->SpawnActor<AActor>(HeavyAttackEffectBP, SpawnLocation, SpawnRotation, Params);
+		return;
+	}
+
+	if (HeavyAttackEffectNS)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, HeavyAttackEffectNS, SpawnLocation, SpawnRotation);
+		return;
+	}
 }
 
 void AAFMage::Multicast_SpawnQEffectBP_Implementation(const FVector& SpawnLocation, const FRotator& SpawnRotation)
@@ -242,6 +293,32 @@ void AAFMage::Multicast_SpawnQEffectFollow_Implementation(AActor* TargetActor)
 
 void AAFMage::SpawnHeavyFx_Server()
 {
+	if (!HasAuthority()) return;
+	if (bHeavyFxPlayed) return; // 중복 방지(타이머/노티파이 둘 다 대비)
+	bHeavyFxPlayed = true;
+
+	const float Radius = (HeavyAttackData.SkillRange > 0.f) ? HeavyAttackData.SkillRange : 250.f;
+	const float Damage = (HeavyAttackData.Damage > 0.f) ? HeavyAttackData.Damage : 40.f;
+
+	// 1) 데미지 판정(서버)
+	HandleSkillHitCheck(Radius, Damage, 0.f);
+
+	// 2) 이펙트 위치 계산(바닥 트레이스) + 멀티캐스트
+	const FVector FxBase = GetActorLocation()
+		+ GetActorForwardVector() * Heavy_FxForward
+		+ FVector(0.f, 0.f, Heavy_FxUp);
+
+	FHitResult Hit;
+	const FVector TraceStart = FxBase + FVector(0, 0, Heavy_TraceStartUp);
+	const FVector TraceEnd   = FxBase - FVector(0, 0, 5000.f);
+
+	FVector FxLoc = FxBase;
+	if (GetWorld() && GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility))
+	{
+		FxLoc = Hit.ImpactPoint;
+	}
+
+	Multicast_SpawnHeavyEffectBP(FxLoc, FRotator::ZeroRotator);
 }
 
 AActor* AAFMage::FindQTarget()
@@ -338,10 +415,6 @@ void AAFMage::HandleOnCheckHit()
 		// 필요하면 추가
 	}
 
-	else if (Anim->Montage_IsPlaying(HeavyAttackMontage))
-	{
-		HandleSkillHitCheck(250.f, 40.f, 0.f); // 강공격 스킬 (중간 범위, 40 대미지)
-	}
 	// 3) Q 스킬 판정 + 이펙트
 	else if (Anim->Montage_IsPlaying(SkillQMontage))
 	{
@@ -384,22 +457,37 @@ void AAFMage::HandleOnCheckHit()
 	
 	else if (HeavyAttackMontage && Anim->Montage_IsPlaying(HeavyAttackMontage))
 	{
-		FVector FxBase =
-			GetActorLocation()
-			+ GetActorForwardVector() * Heavy_FxForward
-			+ FVector(0.f, 0.f, Heavy_FxUp);
+		const float CurrentPos = Anim->Montage_GetPosition(HeavyAttackMontage);
 
-		FHitResult Hit;
-		FVector TraceStart = FxBase + FVector(0,0,Heavy_TraceStartUp);
-		FVector TraceEnd   = FxBase - FVector(0,0,5000.f);
+		const float Radius = (HeavyAttackData.SkillRange > 0.f) ? HeavyAttackData.SkillRange : 250.f;
+		const float Damage = (HeavyAttackData.Damage > 0.f) ? HeavyAttackData.Damage : 40.f;
 
-		FVector FxLoc = FxBase;
-		if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility))
+		if (CurrentPos >= Heavy_FxDelay)
 		{
-			FxLoc = Hit.ImpactPoint;
+			HandleSkillHitCheck(Radius, Damage, 0.f);
 		}
 
-		Multicast_SpawnHeavyEffectBP(FxLoc, FRotator::ZeroRotator);
+		if (!bHeavyFxPlayed && CurrentPos >= Heavy_FxDelay)
+		{
+			bHeavyFxPlayed = true;
+
+			FVector FxBase =
+				GetActorLocation()
+				+ GetActorForwardVector() * Heavy_FxForward
+				+ FVector(0.f, 0.f, Heavy_FxUp);
+
+			FHitResult Hit;
+			FVector TraceStart = FxBase + FVector(0,0,Heavy_TraceStartUp);
+			FVector TraceEnd   = FxBase - FVector(0,0,5000.f);
+
+			FVector FxLoc = FxBase;
+			if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility))
+			{
+				FxLoc = Hit.ImpactPoint;
+			}
+
+			Multicast_SpawnHeavyEffectBP(FxLoc, FRotator::ZeroRotator);
+		}
 	}
 }
 
@@ -502,53 +590,46 @@ void AAFMage::LoadMageData()
 	}
 }
 
-//void AAFPlayerCharacter::InputHeavyAttack(const FInputActionValue& InValue)
-//{
-//	// 로컬에서의 최소한의 방어 코드
-//	if (GetCharacterMovement()->IsFalling() || bIsUsingSkill || bIsHeavyAttacking) return;
-//
-//
-//}
+/*
+void AAFPlayerCharacter::InputHeavyAttack(const FInputActionValue& InValue)
+{
+	// 로컬에서의 최소한의 방어 코드
+	if (GetCharacterMovement()->IsFalling() || bIsUsingSkill || bIsHeavyAttacking) return;
+}
 
-//void AAFMage::ServerRPC_HeavyAttack_Implementation()
-//{
-//
-//	// 1. 서버에서 모든 조건 체크 (보안 및 동기화)
-//	if (bIsUsingSkill || bIsHeavyAttacking) return;
-//	if (!HeavyAttackMontage) return;
-//
-//
-//
-//	// 2. 서버 상태 업데이트
-//	bIsAttacking = true;
-//	bIsHeavyAttacking = true;
-//
-//	// 3. 쿨타임 시작 (데이터 테이블의 Cooldown 값 사용)
-//	if (SkillComponent)
-//	{
-//		// HeavyAttackData.Cooldown 등 로드된 값을 사용하세요
-//		SkillComponent->StartCooldown(TEXT("Mage_Right"), HeavyAttackData.Cooldown);
-//	}
-//
-//	// 4. 이동 제어 (서버에서 먼저 적용)
-//	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
-//	{
-//		MoveComp->StopMovementImmediately();
-//		MoveComp->DisableMovement();
-//	}
-//
-//	// 5. 모든 클라이언트에게 재생 명령
-//	Multicast_PlayHeavyAttack();
-//}
-//
-//void AAFMage::Multicast_PlayHeavyAttack_Implementation()
-//{
-//	// 로컬 클라이언트와 다른 모든 플레이어 화면에서 몽타주 재생
-//	PlayAnimMontage(HeavyAttackMontage);
-//
-//	// 로컬 클라이언트에서 이동 제한 (예측성 처리)
-//	if (IsLocallyControlled())
-//	{
-//		LockMovement();
-//	}
-//}
+void AAFMage::ServerRPC_HeavyAttack_Implementation()
+{
+
+	if (bIsUsingSkill || bIsHeavyAttacking) return;
+if (!HeavyAttackMontage) return;
+bIsAttacking = true;
+bIsHeavyAttacking = true;
+
+if (SkillComponent)
+{
+// HeavyAttackData.Cooldown 등 로드된 값을 사용하세요
+SkillComponent->StartCooldown(TEXT("Mage_Right"), HeavyAttackData.Cooldown);
+}
+if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+{
+MoveComp->StopMovementImmediately();
+		MoveComp->DisableMovement();
+	}
+
+	// 5. 모든 클라이언트에게 재생 명령
+	Multicast_PlayHeavyAttack();
+}
+
+void AAFMage::Multicast_PlayHeavyAttack_Implementation()
+{
+	// 로컬 클라이언트와 다른 모든 플레이어 화면에서 몽타주 재생
+	PlayAnimMontage(HeavyAttackMontage);
+
+	// 로컬 클라이언트에서 이동 제한 (예측성 처리)
+	if (IsLocallyControlled())
+	{
+		LockMovement();
+	}
+}
+*/
+
