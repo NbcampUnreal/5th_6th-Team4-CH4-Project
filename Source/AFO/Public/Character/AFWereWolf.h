@@ -1,3 +1,5 @@
+// AFWereWolf.h
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -11,9 +13,33 @@ class AFO_API AAFWereWolf : public AAFPlayerCharacter
 	
 public:
 	AAFWereWolf();
+
 	virtual void BeginPlay() override;
 
+<<<<<<< Updated upstream
+=======
+	virtual void HandleOnCheckHit() override;
+
+	virtual void ServerRPC_SkillQ_Implementation() override;
+	virtual void ServerRPC_SkillE_Implementation() override;
+
+>>>>>>> Stashed changes
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement")
-	float WereWolfMoveSpeed = 200.f; 
+	bool bIsBleedModeActive = false;
+	FTimerHandle BleedModeTimerHandle;
+
+	void EndBleedMode();
+	void ResetSpeedBoost();
+
+	UPROPERTY(EditAnywhere, Category = "AF|Stat")
+	float SpeedBoostDuration = 15.f;
+
+	UPROPERTY(EditAnywhere, Category = "AF|Stat")
+	float SpeedBoostMutifly = 1.5f;
+
+	UPROPERTY(EditAnywhere, Category = "AF|Stat")
+	float OriginalSpeed = 300.f;
+
+	FTimerHandle SpeedBoostTimerHandle;
+
 };

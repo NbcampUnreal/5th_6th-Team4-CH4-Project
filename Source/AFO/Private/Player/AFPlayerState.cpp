@@ -6,18 +6,22 @@
 #include "Player/AFPlayerController.h"
 #include "Net/UnrealNetwork.h"
 #include "Game/AFLobbyGameState.h"
+#include "Components/AFAttributeComponent.h"
 
+// ===========================================
+// 0. 초기화 및 동기화
+// ===========================================
+#pragma region InitializeSetting
 AAFPlayerState::AAFPlayerState()
 {
-	MaxHealth = 100.0f;
-	MaxMana = 1000.0f;
 	CurrentHealth = MaxHealth;
 	CurrentMana = MaxMana;
 	KillCount = 0;
 	DeathCount = 0;
 	TeamID = 0; // Default RED
 	TeamIndex = 1; // Default Index 1
-	bIsDead = false;
+	bReady = false;
+	SelectedCharacterId = 255;
 }
 
 void AAFPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -32,8 +36,11 @@ void AAFPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AAFPlayerState, DeathCount);
 	DOREPLIFETIME(AAFPlayerState, TeamID);
 	DOREPLIFETIME(AAFPlayerState, TeamIndex);
-	DOREPLIFETIME(AAFPlayerState, bIsDead);
 	DOREPLIFETIME(AAFPlayerState, SelectedCharacterId);
+<<<<<<< Updated upstream
+=======
+	DOREPLIFETIME(AAFPlayerState, SelectedCharacterName);
+>>>>>>> Stashed changes
 	DOREPLIFETIME(AAFPlayerState, bReady);
 }
 
@@ -47,7 +54,13 @@ void AAFPlayerState::CopyProperties(APlayerState* PlayerState)
 		NewPS->TeamIndex = TeamIndex;
 		NewPS->SelectedCharacterId = SelectedCharacterId;
 		NewPS->bReady = bReady;
+<<<<<<< Updated upstream
 		UE_LOG(LogTemp, Warning, TEXT("CopyProperties: OldTeam=%d -> NewPS Team Set!"), TeamID);
+=======
+		NewPS->KillCount = KillCount;
+		NewPS->DeathCount = DeathCount;
+		NewPS->SelectedCharacterKey = this->SelectedCharacterKey;
+>>>>>>> Stashed changes
 	}
 }
 
@@ -59,27 +72,31 @@ void AAFPlayerState::OverrideWith(APlayerState* PlayerState)
 	{
 		TeamID = OldPS->TeamID;
 		TeamIndex = OldPS->TeamIndex;
-
 		SelectedCharacterId = OldPS->SelectedCharacterId;
+		SelectedCharacterName = OldPS->SelectedCharacterName;
 		bReady = OldPS->bReady;
 	}
 }
 
-// =========================
-// OnRep 함수 구현
-// =========================
-void AAFPlayerState::OnRep_CurrentHealth()
-{
-			OnHealthChanged.Broadcast(CurrentHealth, MaxHealth, this);
-}
 
-void AAFPlayerState::OnRep_CurrentMana()
-{
-	OnManaChanged.Broadcast(CurrentMana, MaxMana, this);
-}
+#pragma endregion
 
-void AAFPlayerState::OnRep_KillCount()
+// ===========================================
+// 1. 복제변수 및 OnRep함수
+// ===========================================
+#pragma region ReplicatedVariable
+
+void AAFPlayerState::OnRep_Attributes()// HP, MP 변화 시 호출
 {
+	OnAttributeChanged.Broadcast(CurrentHealth, MaxHealth, CurrentMana, MaxMana, this);
+}
+void AAFPlayerState::OnRep_PlayerScore()      // Kill, Death 변화 시 호출
+{
+	OnScoreChanged.Broadcast(KillCount, DeathCount, this);
+}
+void AAFPlayerState::OnRep_PlayerInfo() // 팀, 캐릭터 정보 변화 시 호출
+{
+<<<<<<< Updated upstream
 	OnKillCountChanged.Broadcast(KillCount, this);
 }
 
@@ -160,7 +177,11 @@ void AAFPlayerState::IncrementDeathCount()
 void AAFPlayerState::OnRep_TeamInfo()
 {
 	OnTeamInfoChanged.Broadcast(this);
+=======
+	OnPlayerInfoChanged.Broadcast(this);
+>>>>>>> Stashed changes
 
+	// 로비 게임스테이트가 있다면 인원수 갱신 요청 (기존 로직 유지)
 	if (UWorld* World = GetWorld())
 	{
 		if (AAFLobbyGameState* LGS = World->GetGameState<AAFLobbyGameState>())
@@ -169,87 +190,123 @@ void AAFPlayerState::OnRep_TeamInfo()
 		}
 	}
 }
+void AAFPlayerState::OnRep_PlayerName()
+{
+	Super::OnRep_PlayerName();
+	OnRep_PlayerInfo();
+}
+
+#pragma endregion
+
+// =========================
+// 2. Setter 
+// =========================
+#pragma region Setter
+
+void AAFPlayerState::SetHealth(float NewHealth, float NewMaxHealth)
+{
+	if (!HasAuthority()) return;
+	CurrentHealth = FMath::Clamp(NewHealth, 0.f, NewMaxHealth);
+	MaxHealth = NewMaxHealth;
+	OnRep_Attributes();
+}
+
+void AAFPlayerState::SetMana(float NewMana, float NewMaxMana)
+{
+	if (!HasAuthority()) return;
+	CurrentMana = FMath::Clamp(NewMana, 0.f, NewMaxMana);
+	MaxMana = NewMaxMana;
+	OnRep_Attributes();
+}
+
+void AAFPlayerState::AddKill()
+{
+	if (!HasAuthority()) return;
+	KillCount++;
+	OnRep_PlayerScore();
+}
+
+void AAFPlayerState::AddDeath()
+{
+	if (!HasAuthority()) return;
+	DeathCount++;
+	OnRep_PlayerScore();
+}
 
 void AAFPlayerState::SetTeamInfo(uint8 NewTeamID, uint8 NewTeamIndex)
 {
 	if (!HasAuthority()) return;
-
 	TeamID = NewTeamID;
 	TeamIndex = NewTeamIndex;
+	OnRep_PlayerInfo();
 
 	ForceNetUpdate();
-
-	OnRep_TeamInfo();
-}
-
-
-void AAFPlayerState::SetDead(bool bNewDead)
-{
-	if (!HasAuthority()) return;
-
-	if (bIsDead == bNewDead)
-	{
-		return;
-	}
-
-	bIsDead = bNewDead;
-
-	// 서버에서도 즉시 반응이 필요하면 호출하라 하네요
-	OnRep_IsDead();
 }
 
 void AAFPlayerState::ResetForRespawn()
 {
 	if (!HasAuthority()) return;
-
-	SetDead(false);
-	SetHealth(MaxHealth, MaxHealth);
-	SetMana(MaxMana, MaxMana);
+	OnRep_PlayerInfo();
 }
 
 void AAFPlayerState::SetSelectedCharacter_Server(uint8 InId)
 {
 	if (!HasAuthority()) return;
 	SelectedCharacterId = InId;
-	OnRep_SelectedCharacter();
+
+	// ID에 따라 실제 데이터 테이블의 RowName(Mage, Archer 등)을 직접 매핑
+	// (CharacterDisplayNames 배열에 의존하지 않는 방식이 더 안전합니다)
+	switch (InId)
+	{
+	case 0: SelectedCharacterKey = TEXT("Mage"); break;
+	case 1: SelectedCharacterKey = TEXT("Archer"); break;
+	case 2: SelectedCharacterKey = TEXT("WereWolf"); break;
+	default: SelectedCharacterKey = TEXT("Unknown"); break;
+	}
+
+	OnRep_PlayerInfo();
 }
 
 void AAFPlayerState::SetReady_Server(bool bNewReady)
 {
 	if (!HasAuthority()) return;
 	bReady = bNewReady;
-	OnRep_Ready();
+	OnRep_PlayerInfo();
 }
 
 void AAFPlayerState::ResetLobbySelection_Server()
 {
 	if (!HasAuthority()) return;
 	SelectedCharacterId = 255;
+	SelectedCharacterName = FText::GetEmpty();
 	bReady = false;
-	OnRep_SelectedCharacter();
-	OnRep_Ready();
+	OnRep_PlayerInfo();
 }
 
+<<<<<<< Updated upstream
 void AAFPlayerState::AddMana(float Amount)
+=======
+FText AAFPlayerState::GetSelectedCharacterName() const
 {
-	if (!HasAuthority()) return;
-
-	SetMana(CurrentMana + Amount, MaxMana);
+	return SelectedCharacterName.IsEmpty() ? FText::FromString(TEXT("Unknown")) : SelectedCharacterName;
 }
 
-bool AAFPlayerState::ConsumeMana(float Amount)
+bool AAFPlayerState::IsDead() const
+>>>>>>> Stashed changes
 {
-	if (!HasAuthority()) return false;
-
-	if (CurrentMana < Amount)
+	APawn* OwningPawn = GetPawn();
+	if (OwningPawn)
 	{
-		return false;
+		UAFAttributeComponent* AttrComp = OwningPawn->FindComponentByClass<UAFAttributeComponent>();
+		if (AttrComp)
+		{
+			return AttrComp->IsDead();
+		}
 	}
-
-	SetMana(CurrentMana - Amount, MaxMana);
 	return true;
 }
 
+<<<<<<< Updated upstream
 
 
 
@@ -259,3 +316,6 @@ bool AAFPlayerState::ConsumeMana(float Amount)
 
 
 
+=======
+#pragma endregion
+>>>>>>> Stashed changes

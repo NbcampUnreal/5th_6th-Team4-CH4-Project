@@ -41,6 +41,7 @@ void UAFAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		DirectionY = LocalInput.Y * 100.0f;
 	}
 	
+<<<<<<< Updated upstream
 	if (AAFPlayerCharacter* BaseChar = Cast<AAFPlayerCharacter>(OwnerCharacter))
 	{
 		if (AAFDarkKnight* DK = Cast<AAFDarkKnight>(BaseChar))
@@ -62,18 +63,15 @@ void UAFAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		}
 	}
 	
+=======
+
+>>>>>>> Stashed changes
 	bIsSprinting = bIsSprinting && (GroundSpeed > 3.f);
 }
 
 void UAFAnimInstance::AnimNotify_AttackHit()
 {
-	if (auto Owner = TryGetPawnOwner())
-	{
-		if (auto Character = Cast<AAFPlayerCharacter>(Owner))
-		{
-			Character->DealDamage();
-		}
-	}
+
 }
 
 void UAFAnimInstance::AnimNotify_CheckHit()

@@ -5,24 +5,40 @@
 #include "Components/TextBlock.h"
 #include "Components/ProgressBar.h"
 #include "Game/AFGameState.h"
-#include "Kismet/GameplayStatics.h"
 #include "AFO/Public/Player/AFPlayerState.h"
-#include "GameFramework/PlayerController.h"
-#include "AFO/Public/Components/AFAttributeComponent.h"
 #include "Player/AFPlayerController.h"
+#include "Components/AFAttributeComponent.h"
 
 
-// ====================
-// 1. 초기화 및 바인딩 진입점
-// ====================
-
+	// ===========================================
+	// 0. 초기화 및 동기화
+	// ===========================================
+#pragma region InitializeSetting
 void UAFInGameWidget::NativeConstruct()
 {
 	UUserWidget::NativeConstruct();
 
+<<<<<<< Updated upstream
 	if (GameTimer)
 	{
 		GameTimer->SetText(FText::FromString("Wait..."));
+=======
+	// 1. 타이머 초기화
+	if (GameTimer) GameTimer->SetText(FText::FromString(TEXT("00:00")));
+
+	AAFGameState* GS = GetWorld()->GetGameState<AAFGameState>();
+	if (GS)
+	{
+		// 2. GameState 관련 델리게이트 연결
+		GS->OnTimerChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateGameTimerText);
+		GS->OnPlayerArrayChanged.AddUniqueDynamic(this, &UAFInGameWidget::UpdateTeamTotalScore);
+
+		// 점수판 델리게이트가 GameState에 있다면 여기에 추가 (예: OnTeamScoreChanged)
+		// 현재는 HandleScoreChanged 내부나 별도 함수에서 처리
+
+		// 3. 이미 존재하는 플레이어 바인딩 시도
+		HandlePlayerArrayChanged();
+>>>>>>> Stashed changes
 	}
 
 	// GameState를 찾아서 델리게이트 구독
@@ -56,11 +72,17 @@ void UAFInGameWidget::NativeConstruct()
 
 }
 
-void UAFInGameWidget::HandlePlayerArrayChanged()
-{
-	AGameStateBase* GS = GetWorld()->GetGameState();
-	if (!GS) return;
+#pragma endregion
 
+// ===========================================
+// 1. 델리게이트 핸들러
+// ===========================================
+#pragma region DelegateHandler
+void UAFInGameWidget::HandleAttributeChanged(float CurHP, float MaxHP, float CurMP, float MaxMP, AAFPlayerState* TargetPS)
+{
+	if (!IsValid(TargetPS)) return;
+
+<<<<<<< Updated upstream
 	// 현재 접속 중인 모든 플레이어를 대상으로 초기화 시도
 	// bTeamUIInitialized 체크를 제거하고 내부에서 개별 플레이어별로 체크합니다.
 	InitializeTeamUI(GS->PlayerArray);
@@ -69,11 +91,19 @@ void UAFInGameWidget::HandlePlayerArrayChanged()
 void UAFInGameWidget::CheckAndInitializeUI()
 {
 	if (bTeamUIInitialized)
+=======
+	// A. 내 HUD 업데이트 (로컬 플레이어인 경우)
+	if (TargetPS->GetOwner() == GetOwningPlayer())
+>>>>>>> Stashed changes
 	{
-		GetWorld()->GetTimerManager().ClearTimer(InitTimerHandle);
-		return;
+		if (PlayerHP) PlayerHP->SetPercent(MaxHP > 0.f ? CurHP / MaxHP : 0.f);
+		if (PlayerMP) PlayerMP->SetPercent(MaxMP > 0.f ? CurMP / MaxMP : 0.f);
+
+		if (Text_PlayerHP) Text_PlayerHP->SetText(FText::AsNumber(FMath::RoundToInt(CurHP)));
+		if (Text_PlayerMP) Text_PlayerMP->SetText(FText::AsNumber(FMath::RoundToInt(CurMP)));
 	}
 
+<<<<<<< Updated upstream
 	AGameStateBase* GS = GetWorld()->GetGameState();
 	if (!GS)
 	{
@@ -209,95 +239,89 @@ void UAFInGameWidget::UpdatePlayerHealthBar(float CurrentHealth, float MaxHealth
 	if (!TargetPS || MaxHealth <= 0.f) return;
 	float Percent = CurrentHealth / MaxHealth;
 
+=======
+	// B. 상단 팀 스코어보드 업데이트 (팀 ID와 인덱스로 위젯 검색)
+>>>>>>> Stashed changes
 	UProgressBar* TargetHPBar = nullptr;
-
-	if (TargetPS->GetTeamID() == 0) // RED 팀
-	{
-		TargetHPBar = (TargetPS->GetTeamIndex() == 1) ? RedPlayer1HP : RedPlayer2HP;
-
-		// ★★★ RED 팀 포인터 유효성 확인 로그 ★★★
-		if (!TargetHPBar)
-		{
-			// 이 로그가 특정 클라이언트에서만 출력되면 UMG 런타임 바인딩 실패 확정
-			UE_LOG(LogTemp, Error, TEXT("FATAL_UMG_BINDING: Red HP Bar (Index %d) is NULL on client %s!"), TargetPS->GetTeamIndex(), *GetOwningPlayer()->GetName());
-		}
-	}
-	else // BLUE 팀
-	{
-		TargetHPBar = (TargetPS->GetTeamIndex() == 1) ? BluePlayer1HP : BluePlayer2HP;
-	}
-
-	if (TargetHPBar)
-	{
-		TargetHPBar->SetPercent(Percent);
-		// ★★★ 업데이트 성공 로그 ★★★
-		UE_LOG(LogTemp, Warning, TEXT("SCOREBOARD UPDATE SUCCESS: Team %d Index %d HP %.2f"), TargetPS->GetTeamID(), TargetPS->GetTeamIndex(), CurrentHealth);
-	}
-	else
-	{
-		// ★★★ 업데이트 실패 (UMG 포인터 문제) 로그 ★★★
-		UE_LOG(LogTemp, Warning, TEXT("SCOREBOARD UPDATE FAILED: Team %d Index %d. TargetHPBar is NULL."), TargetPS->GetTeamID(), TargetPS->GetTeamIndex());
-	}
-}
-
-void UAFInGameWidget::UpdatePlayerManaBar(float CurrentMana, float MaxMana, AAFPlayerState* TargetPS)
-{
-	if (!TargetPS || MaxMana <= 0.f) return;
-	float Percent = CurrentMana / MaxMana;
-
 	UProgressBar* TargetMPBar = nullptr;
 
-	if (TargetPS->GetTeamID() == 0) // RED 팀
-	{
-		TargetMPBar = (TargetPS->GetTeamIndex() == 1) ? RedPlayer1MP : RedPlayer2MP;
+	bool bIsRed = (TargetPS->GetTeamID() == 0);
+	uint8 Idx = TargetPS->GetTeamIndex();
+
+	if (bIsRed) {
+		TargetHPBar = (Idx == 1) ? RedPlayer1HP : RedPlayer2HP;
+		TargetMPBar = (Idx == 1) ? RedPlayer1MP : RedPlayer2MP;
 	}
-	else // BLUE 팀
-	{
-		TargetMPBar = (TargetPS->GetTeamIndex() == 1) ? BluePlayer1MP : BluePlayer2MP;
+	else {
+		TargetHPBar = (Idx == 1) ? BluePlayer1HP : BluePlayer2HP;
+		TargetMPBar = (Idx == 1) ? BluePlayer1MP : BluePlayer2MP;
 	}
 
-	if (TargetMPBar)
-	{
-		TargetMPBar->SetPercent(Percent);
-	}
+	if (TargetHPBar) TargetHPBar->SetPercent(MaxHP > 0.f ? CurHP / MaxHP : 0.f);
+	if (TargetMPBar) TargetMPBar->SetPercent(MaxMP > 0.f ? CurMP / MaxMP : 0.f);
 }
 
-void UAFInGameWidget::UpdatePlayerKillCount(int32 NewKillCount, AAFPlayerState* TargetPS)
+void UAFInGameWidget::HandleScoreChanged(int32 Kills, int32 Deaths, AAFPlayerState* TargetPS)
 {
-	if (!TargetPS) return;
+	if (!IsValid(TargetPS)) return;
 
-	FText NewKillText = FText::AsNumber(NewKillCount);
+	UTextBlock* KillText = nullptr;
+	UTextBlock* DeathText = nullptr;
 
-	if (TargetPS->GetTeamID() == 0) // RED 팀
-	{
-		if (TargetPS->GetTeamIndex() == 1 && RedPlayer1Kill) RedPlayer1Kill->SetText(NewKillText);
-		if (TargetPS->GetTeamIndex() == 2 && RedPlayer2Kill) RedPlayer2Kill->SetText(NewKillText);
+	bool bIsRed = (TargetPS->GetTeamID() == 0);
+	uint8 Idx = TargetPS->GetTeamIndex();
+
+	if (bIsRed) {
+		KillText = (Idx == 1) ? RedPlayer1Kill : RedPlayer2Kill;
+		DeathText = (Idx == 1) ? RedPlayer1Death : RedPlayer2Death;
 	}
-	else // BLUE 팀
-	{
-		if (TargetPS->GetTeamIndex() == 1 && BluePlayer1Kill) BluePlayer1Kill->SetText(NewKillText);
-		if (TargetPS->GetTeamIndex() == 2 && BluePlayer2Kill) BluePlayer2Kill->SetText(NewKillText);
+	else {
+		KillText = (Idx == 1) ? BluePlayer1Kill : BluePlayer2Kill;
+		DeathText = (Idx == 1) ? BluePlayer1Death : BluePlayer2Death;
 	}
+
+	if (KillText) KillText->SetText(FText::AsNumber(Kills));
+	if (DeathText) DeathText->SetText(FText::AsNumber(Deaths));
+
+	// 개별 점수가 바뀔 때 팀 전체 점수판도 갱신
+	UpdateTeamTotalScore();
 }
 
-void UAFInGameWidget::UpdatePlayerDeathCount(int32 NewDeathCount, AAFPlayerState* TargetPS)
+void UAFInGameWidget::HandlePlayerInfoChanged(AAFPlayerState* PS)
 {
-	if (!TargetPS) return;
+	if (!IsValid(PS)) return;
+	
+	UTextBlock* NameWidget = nullptr;
+	bool bIsRed = (PS->GetTeamID() == 0);
+	uint8 Idx = PS->GetTeamIndex();
 
-	FText NewDeathText = FText::AsNumber(NewDeathCount);
-
-	if (TargetPS->GetTeamID() == 0) // RED 팀
-	{
-		if (TargetPS->GetTeamIndex() == 1 && RedPlayer1Death) RedPlayer1Death->SetText(NewDeathText);
-		if (TargetPS->GetTeamIndex() == 2 && RedPlayer2Death) RedPlayer2Death->SetText(NewDeathText);
+	if (bIsRed) {
+		NameWidget = (Idx == 1) ? RedPlayerName01 : RedPlayerName02;
 	}
-	else // BLUE 팀
+	else {
+		NameWidget = (Idx == 1) ? BluePlayerName01 : BluePlayerName02;
+	}
+
+	if (NameWidget)
 	{
-		if (TargetPS->GetTeamIndex() == 1 && BluePlayer1Death) BluePlayer1Death->SetText(NewDeathText);
-		if (TargetPS->GetTeamIndex() == 2 && BluePlayer2Death) BluePlayer2Death->SetText(NewDeathText);
+		FText DisplayName = FText::FromString(PS->GetPlayerName());
+
+		// 사망 상태라면 이름 옆에 표시
+		if (PS->IsDead())
+		{
+			DisplayName = FText::Format(FText::FromString(TEXT("{0} (Dead)")), DisplayName);
+			NameWidget->SetColorAndOpacity(FLinearColor::Gray);
+		}
+		else
+		{
+			NameWidget->SetColorAndOpacity(FLinearColor::White);
+		}
+
+		NameWidget->SetText(DisplayName);
 	}
 }
 
+<<<<<<< Updated upstream
 // 팀 총합 스코어 갱신 핸들러
 void UAFInGameWidget::UpdateTeamKillDeathScore(int32 NewValue, AAFPlayerState* TargetPS)
 {
@@ -385,6 +409,8 @@ void UAFInGameWidget::UpdateMyManaBar(float NewMana, float MaxMana, AAFPlayerSta
 }
 
 // 타이머 델리게이트 핸들러
+=======
+>>>>>>> Stashed changes
 void UAFInGameWidget::UpdateGameTimerText(int32 NewTime)
 {
 	if (!IsValid(GameTimer)) return;
@@ -408,9 +434,9 @@ void UAFInGameWidget::UpdateGameTimerText(int32 NewTime)
 	}
 }
 
-
-void UAFInGameWidget::ShowGameResult()
+void UAFInGameWidget::UpdateTeamTotalScore()
 {
+<<<<<<< Updated upstream
 	APlayerController* PC = GetOwningPlayer();
 	AAFPlayerController* AFPC = Cast<AAFPlayerController>(PC);
 	if (!AFPC) return;
@@ -422,9 +448,31 @@ void UAFInGameWidget::ShowGameResult()
 	uint8 MyTeam = MyPS->GetTeamID();
 	bool bIWin = false;
 	bool bIsDraw = (BlueTotalKills == RedTotalKills);
+=======
+	AAFGameState* GS = GetWorld()->GetGameState<AAFGameState>();
+	if (!GS) return;
 
-	if (!bIsDraw)
+	if (RedKillScore) RedKillScore->SetText(FText::AsNumber(GS->TeamRedKillScore));
+	if (RedDeathScore) RedDeathScore->SetText(FText::AsNumber(GS->TeamRedDeathScore));
+	if (BlueKillScore) BlueKillScore->SetText(FText::AsNumber(GS->TeamBlueKillScore));
+	if (BlueDeathScore) BlueDeathScore->SetText(FText::AsNumber(GS->TeamBlueDeathScore));
+}
+#pragma endregion
+
+// =============================
+// 2. 내부 로직 및 바인딩
+// =============================
+#pragma region Binding
+
+void UAFInGameWidget::HandlePlayerArrayChanged()
+{
+	AAFGameState* GS = GetWorld()->GetGameState<AAFGameState>();
+	if (!GS) return;
+>>>>>>> Stashed changes
+
+	for (APlayerState* PS : GS->PlayerArray)
 	{
+<<<<<<< Updated upstream
 		if (RedTotalKills > BlueTotalKills) bIWin = (MyTeam == 0);
 		else bIWin = (MyTeam == 1);
 	}
@@ -445,69 +493,82 @@ void UAFInGameWidget::ShowGameResult()
 	{
 		UUserWidget* ResultWidget = CreateWidget<UUserWidget>(GetWorld(), ResultClass);
 		if (ResultWidget)
+=======
+		if (AAFPlayerState* AFPS = Cast<AAFPlayerState>(PS))
+>>>>>>> Stashed changes
 		{
-			AFPC->Client_ClearRespawnWidget();
-			ResultWidget->AddToViewport();
+			BindToPlayerState(AFPS);
 		}
 	}
 }
 
-
-
-
-// PlayerState를 찾았을 때 델리게이트를 바인딩하는 최종 함수
 void UAFInGameWidget::BindToPlayerState(AAFPlayerState* PS)
 {
-	// 타이머가 작동 중이라면 중지
-	if (PlayerStateCheckTimerHandle.IsValid())
+	if (!PS || BoundPlayerStates.Contains(PS)) return;
+
+	UAFAttributeComponent* AttribComp = PS->FindComponentByClass<UAFAttributeComponent>();
+
+	// 통합 델리게이트 바인딩
+	PS->OnAttributeChanged.AddUniqueDynamic(this, &UAFInGameWidget::HandleAttributeChanged);
+	PS->OnScoreChanged.AddUniqueDynamic(this, &UAFInGameWidget::HandleScoreChanged);
+	PS->OnPlayerInfoChanged.AddUniqueDynamic(this, &UAFInGameWidget::HandlePlayerInfoChanged);
+
+	// 초기값 강제 갱신
+	if (AttribComp)
 	{
-		GetWorld()->GetTimerManager().ClearTimer(PlayerStateCheckTimerHandle);
-		UE_LOG(LogTemp, Warning, TEXT("!!! PlayerState Timer Cleared !!!"));
+		HandleAttributeChanged(
+			AttribComp->GetHealth(),
+			AttribComp->GetMaxHealth(),
+			AttribComp->GetMana(),
+			AttribComp->GetMaxMana(),
+			PS
+		);
 	}
 
-	// 기존 델리게이트 해제 
-	PS->OnHealthChanged.RemoveDynamic(this, &UAFInGameWidget::UpdateMyHealthBar);
-	PS->OnManaChanged.RemoveDynamic(this, &UAFInGameWidget::UpdateMyManaBar);
 
-	// 1. 델리게이트에 C++ 함수 바인딩 (자신 전용 핸들러)
-	PS->OnHealthChanged.AddDynamic(this, &UAFInGameWidget::UpdateMyHealthBar);
-	PS->OnManaChanged.AddDynamic(this, &UAFInGameWidget::UpdateMyManaBar);
+	HandleScoreChanged(PS->GetKillCount(), PS->GetDeathCount(), PS);
+	HandlePlayerInfoChanged(PS);
 
-	// 2. 초기 값 설정 (TargetPS 인자 추가)
-	UpdateMyHealthBar(PS->GetCurrentHealth(), PS->GetMaxHealth(), PS);
-	UpdateMyManaBar(PS->GetCurrentMana(), PS->GetMaxMana(), PS);
+	BoundPlayerStates.Add(PS);
 
-	UE_LOG(LogTemp, Warning, TEXT("!!! Local HUD SUCCESSFULLY Bound & Initialized via Timer !!!"));
-
-	// 3. 모든 플레이어의 상태를 바인딩하기 위해 InitializeTeamUI 호출
-	if (AGameStateBase* GS = GetWorld()->GetGameState())
-	{
-		InitializeTeamUI(GS->PlayerArray);
-	}
+	UE_LOG(LogTemp, Log, TEXT("UI Bound to Player: %s"), *PS->GetPlayerName());
 }
 
-// 타이머가 호출하는 반복 체크 함수
-void UAFInGameWidget::CheckAndBindPlayerState()
+void UAFInGameWidget::ShowGameResult()
 {
-	APlayerController* PC = GetOwningPlayer();
-	if (!PC)
+	AAFGameState* GS = GetWorld()->GetGameState<AAFGameState>();
+	AAFPlayerState* MyPS = GetOwningPlayerState<AAFPlayerState>();
+	if (!GS || !MyPS) return;
+
+	int32 RedKills = GS->TeamRedKillScore;
+	int32 BlueKills = GS->TeamBlueKillScore;
+
+	TSubclassOf<UUserWidget> ResultClass = DrawWidgetClass;
+
+	if (RedKills != BlueKills)
 	{
-		// 위젯 소유 컨트롤러가 사라졌다면 타이머 중지
-		GetWorld()->GetTimerManager().ClearTimer(PlayerStateCheckTimerHandle);
-		return;
+		bool bRedWin = RedKills > BlueKills;
+		bool bIsMyTeamRed = (MyPS->GetTeamID() == 0);
+
+		ResultClass = (bRedWin == bIsMyTeamRed) ? VictoryWidgetClass : LoseWidgetClass;
 	}
 
-	if (AAFPlayerState* PS = PC->GetPlayerState<AAFPlayerState>())
+	if (ResultClass)
 	{
-		// PlayerState를 찾으면 바인딩 함수 호출
-		BindToPlayerState(PS);
-	}
-	else
-	{
-		// 아직 못 찾았으면 다음 주기까지 기다립니다.
-		// UE_LOG(LogTemp, Log, TEXT("Waiting for PlayerState..."));
+		UUserWidget* ResultWidget = CreateWidget<UUserWidget>(GetWorld(), ResultClass);
+		if (ResultWidget) ResultWidget->AddToViewport();
 	}
 }
+#pragma endregion
+
+
+
+
+
+
+
+
+
 
 
 

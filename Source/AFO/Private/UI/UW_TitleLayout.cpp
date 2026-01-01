@@ -29,15 +29,7 @@ void UUW_TitleLayout::NativeConstruct()
 	}
 }
 
-//void UUW_TitleLayout::OnPlayButtonClicked()
-//{
-//	AAFTitlePlayerController* PlayerController = GetOwningPlayer<AAFTitlePlayerController>();
-//	if (IsValid(PlayerController) == true)
-//	{
-//		// FText ServerIP = ServerIPEditableText->GetText();
-//		PlayerController->JoinServer();
-//	}
-//}
+
 
 void UUW_TitleLayout::OnPlayButtonClicked()
 {

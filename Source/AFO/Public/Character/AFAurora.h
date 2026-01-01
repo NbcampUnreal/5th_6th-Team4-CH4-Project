@@ -12,24 +12,12 @@ class AFO_API AAFAurora : public AAFPlayerCharacter
 public:
 	AAFAurora();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
-	bool bIsSprinting = false;
-
-	virtual void StartSprint(const FInputActionValue& Value) override;
-	virtual void StopSprint(const FInputActionValue& Value) override;
-
-	virtual void Tick(float DeltaTime) override;
-
-	// ===== Aim Offset =====
-	UPROPERTY(BlueprintReadOnly, Category="Aim")
-	float AimYaw;
-
-	UPROPERTY(BlueprintReadOnly, Category="Aim")
-	float AimPitch;
-
-	UPROPERTY(BlueprintReadOnly, Category="Aim")
-	float AimAlpha;
-
 protected:
-	virtual void BeginPlay() override;
+	virtual void HandleOnCheckHit() override;
+
+	UPROPERTY(EditAnywhere, Category = "AF|Stat")
+	float SlowAmount = 0.5f;
+
+	UPROPERTY(EditAnywhere, Category = "AF|Stat")
+	float SlowDuration = 2.0f;
 };

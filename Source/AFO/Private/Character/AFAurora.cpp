@@ -1,45 +1,82 @@
 #include "Character/AFAurora.h"
 #include "GameFramework/Controller.h"
+#include "Components/AFSkillComponent.h"
+#include "Components/AFStatusEffectComponent.h"
 
 AAFAurora::AAFAurora()
 {
-	PrimaryActorTick.bCanEverTick = true;
-
-	AimYaw   = 0.f;
-	AimPitch = 0.f;
-	AimAlpha = 1.f;
+	CharacterKey = TEXT("Aurora");
+	bCanSprint = true;
 }
 
-void AAFAurora::StartSprint(const FInputActionValue& Value)
+void AAFAurora::HandleOnCheckHit()
 {
-	Super::StartSprint(Value);
+    if (!HasAuthority() || IsDead() || !SkillComp) return;
 
-	bIsSprinting = true;
-}
+    FName TargetKey = NAME_None;
+    FAFSkillInfo* TargetData = nullptr;
+    TArray<AActor*> HitVictims;
+    bool bShouldSlow = false;
 
-void AAFAurora::StopSprint(const FInputActionValue& Value)
-{
-	Super::StartSprint(Value);
+    // 1. 현재 어떤 공격 중인지 판별 및 데이터 확보
+    if (bIsHeavyAttacking)
+    {
+        TargetKey = CachedHeavyAttackKey;
+        TargetData = CachedHeavyAttackData;
+        bShouldSlow = true; 
+    }
+    else if (bIsUsingSkill)
+    {
+        if (AnimInstance->Montage_IsPlaying(SkillEMontage))
+        {
+            TargetKey = CachedSkillEKey;
+            TargetData = CachedSkillEData;
+            bShouldSlow = true; 
+        }
+        else if (AnimInstance->Montage_IsPlaying(SkillQMontage))
+        {
+            TargetKey = CachedSkillQKey;
+            TargetData = CachedSkillQData;
+            bShouldSlow = true; 
+        }
+    }
+    else if (bIsAttacking) // 일반 공격 추가
+    {
+        TargetKey = CachedAttackKey;
+        TargetData = CachedAttackData;
+    }
 
-	bIsSprinting = false;
-}
+    if (TargetData == nullptr)
+    {
+        UE_LOG(LogTemp, Error, TEXT("@@@ [Mage] TargetData is NULL! CharacterKey: %s, IsAttacking: %d"), *CharacterKey, bIsAttacking);
+        return; // 데이터가 없으면 아래 로직을 수행하지 않고 나감
+    }
 
-void AAFAurora::BeginPlay()
-{
-	Super::BeginPlay();
-}
+    // 2. 판정 실행 (스킬/강공격인 경우)
+    if (TargetData)
+    {
+        HitVictims = HandleSkillHitCheck(TargetData->Radius, TargetData->Damage, TargetData->ForwardOffset, TargetData->RotationOffset);
 
-void AAFAurora::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
+        // 쿨타임 시작
+        SkillComp->StartCooldown(TargetKey, TargetData->Cooldown);
+    }
+    // 3. 일반 공격인 경우
+    else if (bIsAttacking)
+    {
+        HandleSkillHitCheck(TargetData->Radius, TargetData->Damage, TargetData->ForwardOffset, TargetData->RotationOffset);
+        bShouldSlow = false;
+    }
 
-	if (!Controller) return;
-
-	const FRotator ControlRot = Controller->GetControlRotation();
-	const FRotator ActorRot   = GetActorRotation();
-	const FRotator DeltaRot  = (ControlRot - ActorRot).GetNormalized();
-
-	AimYaw   = DeltaRot.Yaw;
-	AimPitch = FMath::Clamp(DeltaRot.Pitch, -90.f, 90.f);
-	AimAlpha = 1.f;   // Idle 상태라 항상 켜둠
+    // 4. 슬로우 적용 
+    // 위에서 판정된 HitVictims 리스트를 순회하며 슬로우 적용
+    if (bShouldSlow && HitVictims.Num() > 0)
+    {
+        for (AActor* Victim : HitVictims)
+        {
+            if (UAFStatusEffectComponent* Status = Victim->FindComponentByClass<UAFStatusEffectComponent>())
+            {
+                Status->ApplySlow(SlowAmount, SlowDuration);
+            }
+        }
+    }
 }

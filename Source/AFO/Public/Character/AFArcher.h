@@ -11,6 +11,7 @@ class AFO_API AAFArcher : public AAFPlayerCharacter
 
 public:
 	AAFArcher();
+<<<<<<< Updated upstream
 
 	virtual void Tick(float DeltaTime) override;
 
@@ -27,4 +28,6 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+=======
+>>>>>>> Stashed changes
 };

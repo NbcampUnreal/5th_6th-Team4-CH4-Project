@@ -1,7 +1,5 @@
 // AFAttributeComponent.cpp
 
-
-
 #include "Components/AFAttributeComponent.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
@@ -9,16 +7,74 @@
 #include "Game/AFGameMode.h"
 #include "UI/AFFloatingDamageManager.h"
 #include "Kismet/GameplayStatics.h"
+<<<<<<< Updated upstream
+=======
+#include "Net/UnrealNetwork.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "Types/AFGameTypes.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Character/AFPlayerCharacter.h"
+>>>>>>> Stashed changes
 
+// ===========================================
+// 0. 초기화 및 동기화
+// ===========================================
+#pragma region InitializeSetting
 UAFAttributeComponent::UAFAttributeComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
+<<<<<<< Updated upstream
+=======
+AAFPlayerState* UAFAttributeComponent::GetPlayerState() const
+{
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	return OwnerPawn ? OwnerPawn->GetPlayerState<AAFPlayerState>() : nullptr;
+}
+
+void UAFAttributeComponent::InitializeAttributes(const FAFPlayerCharacterStatRow& StatRow)
+{
+	if (!GetOwner()->HasAuthority()) return;
+
+	// 1. 내부 수치 설정
+	MaxHealth = StatRow.MaxHp;
+	CurrentHealth = MaxHealth;
+	MaxMana = StatRow.MaxMana;
+	CurrentMana = MaxMana;
+	AttackPower = StatRow.Attack;
+	BaseWalkSpeed = StatRow.MoveSpeed;
+
+	// 2. 이동 속도 설정 (CharacterMovement 제어)
+	if (ACharacter* OwnerChar = Cast<ACharacter>(GetOwner()))
+	{
+		if (UCharacterMovementComponent* MoveComp = OwnerChar->GetCharacterMovement())
+		{
+			MoveComp->MaxWalkSpeed = BaseWalkSpeed;
+		}
+	}
+
+	// 3. PlayerState로 즉시 동기화
+	SyncToPlayerState();
+}
+
+void UAFAttributeComponent::SyncToPlayerState()
+{
+	AAFPlayerState* PS = GetPlayerState();
+	if (PS)
+	{
+		PS->SetHealth(CurrentHealth, MaxHealth);
+		PS->SetMana(CurrentMana, MaxMana);
+	}
+}
+
+>>>>>>> Stashed changes
 void UAFAttributeComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
+<<<<<<< Updated upstream
 	Health = MaxHealth;
 	bIsDead = false;
 
@@ -29,10 +85,32 @@ void UAFAttributeComponent::BeginPlay()
 		SyncHealthToPlayerState();
 	}
 }
+=======
+	bIsDead = false;
+
+	if (GetOwner()->HasAuthority())
+	{
+		SyncToPlayerState();
+	}
+}
+
+void UAFAttributeComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UAFAttributeComponent, CurrentShield);
+}
+
+#pragma endregion
+
+// ===========================================
+// 1. 속성 제어 
+// ===========================================
+#pragma region ControlAttribute
+>>>>>>> Stashed changes
 
 void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 {
-	// 서버 전용, 이미 사망 시 등 기존 체크 유지
+	// 1. 서버 전용 및 유효성 체크
 	if (!GetOwner() || !GetOwner()->HasAuthority() || bIsDead || Damage <= 0.f)
 	{
 		return;
@@ -41,13 +119,62 @@ void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 	Health -= Damage;
 	Health = FMath::Clamp(Health, 0.f, MaxHealth);
 
+<<<<<<< Updated upstream
 	UE_LOG(LogTemp, Warning, TEXT("[%s] HP: %f"), *GetOwner()->GetName(), Health);
+=======
+	// 2. 공격자(InstigatedBy)의 버프 확인  -- Attack버프존
+	if (InstigatedBy)
+	{
+		// 공격자의 PlayerState나 Character에서 AttributeComponent를 찾아 배수를 가져옴
+		if (APawn* InstigatorPawn = InstigatedBy->GetPawn())
+		{
+			if (UAFAttributeComponent* AttackerAttr = InstigatorPawn->FindComponentByClass<UAFAttributeComponent>())
+			{
+				FinalDamage *= AttackerAttr->GetAttackMultiplier();	// 공격자의 배수를 최종 데미지에 곱함
+			}
+		}
+	}
 
+	// 3. 보호막(Shield) 처리
+	if (CurrentShield > 0.f)
+	{
+		float DamageToShield = FMath::Min(CurrentShield, FinalDamage);
+		CurrentShield -= DamageToShield;
+		FinalDamage -= DamageToShield;
+		OnRep_CurrentShield();
+	}
 
+	// 4. 체력 차감 및 보고
+	if (FinalDamage > 0.f)
+	{
+
+		// 1. 받은 피해 기록 (본인 PS)
+		if (AAFPlayerState* MyPS = GetPlayerState())
+		{
+			MyPS->AddDamageTaken(FinalDamage);
+		}
+>>>>>>> Stashed changes
+
+		// 2. 가한 피해 기록 (공격자 PS)
+		if (InstigatedBy)
+		{
+			if (AAFPlayerState* AttackerPS = InstigatedBy->GetPlayerState<AAFPlayerState>())
+			{
+				AttackerPS->AddDamageDealt(FinalDamage);
+			}
+		}
+
+<<<<<<< Updated upstream
 	// InstigatedBy를 통해 '누가 때렸는지'를 판별하여 공격자/피격자 색상을 결정
 	Multicast_NotifyDamage(Damage, GetOwner()->GetActorLocation(), InstigatedBy, false);
+=======
+		CurrentHealth = FMath::Clamp(CurrentHealth - FinalDamage, 0.f, MaxHealth);
+		SyncToPlayerState();
+>>>>>>> Stashed changes
 
+		Multicast_NotifyDamage(FinalDamage, GetOwner()->GetActorLocation(), InstigatedBy, false);
 
+<<<<<<< Updated upstream
 
 	SyncHealthToPlayerState();
 	// 타이머를 이용한 반복 로직은 SyncHealthToPlayerState 내부에서 처리되므로,
@@ -98,18 +225,21 @@ void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 //		}
 //	}
 //}
+=======
+		if (CurrentHealth <= 0.f)
+		{
+			HandleDeath(InstigatedBy);
+		}
+	}
+}
+>>>>>>> Stashed changes
 
 void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
 {
 	if (bIsDead) return;
 	bIsDead = true;
 
-	if (GetWorld())
-	{
-		GetWorld()->GetTimerManager().ClearTimer(HealthSyncTimerHandle);
-	}
-
-	SyncHealthToPlayerState();
+	SyncToPlayerState();
 
 	AActor* OwnerActor = GetOwner();
 	if (!OwnerActor) return;
@@ -126,48 +256,92 @@ void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
 			GM->HandlePlayerDeath(VictimController, InstigatedBy);
 		}
 	}
+
+	if (AAFPlayerCharacter* OwnerChar = Cast<AAFPlayerCharacter>(GetOwner()))
+	{
+		OwnerChar->StartDeath(InstigatedBy);
+	}
 }
 
+<<<<<<< Updated upstream
 
 void UAFAttributeComponent::SyncHealthToPlayerState()
+=======
+void UAFAttributeComponent::ApplyHealthChange(float Amount)
+>>>>>>> Stashed changes
 {
-	if (!GetOwner() || !GetOwner()->HasAuthority())
+	if (!GetOwner()->HasAuthority() || bIsDead) return;
+
+	// 3. 힐량 기록 (본인 PS)
+	if (AAFPlayerState* MyPS = GetPlayerState())
 	{
-		return;
+		MyPS->AddHealingDone(Amount);
 	}
 
-	if (APawn* PawnOwner = Cast<APawn>(GetOwner()))
-	{
-		// 1. PlayerState를 찾으려 시도합니다.
-		if (AAFPlayerState* PS = PawnOwner->GetPlayerState<AAFPlayerState>())
-		{
-			// ★★★ 동기화 성공! 타이머를 멈춥니다.
-			GetWorld()->GetTimerManager().ClearTimer(HealthSyncTimerHandle);
+	CurrentHealth = FMath::Clamp(CurrentHealth + Amount, 0.f, MaxHealth);
+	SyncToPlayerState();
+}
 
-			PS->SetHealth(Health, MaxHealth);
-			UE_LOG(LogTemp, Warning, TEXT("Attribute Sync: SUCCESS! Timer Cleared."));
-			return;
-		}
-	}
+void UAFAttributeComponent::ApplyManaChange(float Amount)
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority()) return;
 
-	// 2. 동기화 실패 시 (Failed Attribute Sync2 발생 시)
-	UE_LOG(LogTemp, Warning, TEXT("Sync FAILED. Retrying in 0.2 seconds."));
-
-	// PlayerState를 찾을 때까지 0.2초마다 이 함수를 반복 실행합니다.
-	if (!GetWorld()->GetTimerManager().IsTimerActive(HealthSyncTimerHandle))
-	{
-		GetWorld()->GetTimerManager().SetTimer(
-			HealthSyncTimerHandle,
-			this,
-			&UAFAttributeComponent::SyncHealthToPlayerState,
-			0.2f, // 0.2초마다 반복
-			true  // 반복 실행
-		);
-	}
+	CurrentMana = FMath::Clamp(CurrentMana + Amount, 0.f, MaxMana);
+	SyncToPlayerState();
 }
 
 
+#pragma endregion
 
+// ===========================================
+// 3. 보호막 & 버프
+// ===========================================
+#pragma region Shield&Buff
+void UAFAttributeComponent::ApplyAttackBuff(float Multiplier, float Duration)
+{
+	if (GetOwnerRole() < ROLE_Authority) return;
+
+	AttackMultiplier = Multiplier;
+
+	// 기존 타이머가 있다면 초기화 (버프 시간 갱신)
+	GetWorld()->GetTimerManager().SetTimer(AttackBuffTimerHandle, [this]()
+		{
+			AttackMultiplier = 1.0f; // 원래대로 복구
+			UE_LOG(LogTemp, Log, TEXT("Attack Buff Expired!"));
+		}, Duration, false);
+}
+
+<<<<<<< Updated upstream
+
+=======
+void UAFAttributeComponent::AddShield(float Amount, float Duration)
+{
+	if (!GetOwner()->HasAuthority()) return;
+
+	CurrentShield += Amount;
+	OnRep_CurrentShield(); // 서버에서도 즉시 알림
+
+	// 지속시간이 지나면 보호막 제거 타이머 설정
+	GetWorld()->GetTimerManager().SetTimer(ShieldTimerHandle, this, &UAFAttributeComponent::OnShieldExpired, Duration, false);
+}
+>>>>>>> Stashed changes
+
+void UAFAttributeComponent::OnRep_CurrentShield()
+{
+	OnShieldChanged.Broadcast(CurrentShield);
+}
+
+void UAFAttributeComponent::OnShieldExpired()
+{
+	CurrentShield = 0.f;
+	OnRep_CurrentShield();
+}
+#pragma endregion
+
+// ===========================================
+// 4. 시각효과 (Notify, Aura)
+// ===========================================
+#pragma region Notify&Aura
 
 void UAFAttributeComponent::Multicast_NotifyDamage_Implementation(float Damage, FVector Location, AController* InstigatedBy, bool bIsCritical)
 {
@@ -205,4 +379,51 @@ void UAFAttributeComponent::Multicast_NotifyDamage_Implementation(float Damage, 
 		DamageManager->ShowDamage(Damage, Location, bIsEnemyDamage, bIsCritical);
 	}
 }
+<<<<<<< Updated upstream
 
+=======
+void UAFAttributeComponent::Multicast_ApplyAura_Implementation(UNiagaraSystem* AuraSystem, FLinearColor Color, float Duration)
+{
+	if (!AuraSystem || !GetOwner()) return;
+
+	// [중요] 기존 오오라 제거 로직을 별도로 분리
+	if (ActiveAuraComponent && ActiveAuraComponent->IsValidLowLevel())
+	{
+		ActiveAuraComponent->DestroyComponent();
+	}
+	ActiveAuraComponent = nullptr;
+
+	// 오라 붙이기
+	ActiveAuraComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
+		AuraSystem,
+		GetOwner()->GetRootComponent(),
+		NAME_None,
+		FVector(0.f, 0.f, -90.f),
+		FRotator::ZeroRotator,
+		EAttachLocation::KeepRelativeOffset,
+		true
+	);
+
+	if (ActiveAuraComponent)
+	{
+		// 색상 적용 전후로 로그를 찍어 Alpha값 확인
+		ActiveAuraComponent->SetNiagaraVariableLinearColor(TEXT("User.BaseColor"), Color);
+		ActiveAuraComponent->Activate(true);
+
+		UE_LOG(LogTemp, Warning, TEXT("[%s] Aura Attached! Color Alpha: %f"), *GetOwner()->GetName(), Color.A);
+
+		// 타이머 로직
+		FTimerHandle AuraTimer;
+		TWeakObjectPtr<UNiagaraComponent> WeakComp = ActiveAuraComponent;
+		GetWorld()->GetTimerManager().SetTimer(AuraTimer, [WeakComp]()
+			{
+				if (WeakComp.IsValid())
+				{
+					WeakComp->DestroyComponent();
+				}
+			}, Duration, false);
+	}
+}
+
+#pragma endregion
+>>>>>>> Stashed changes

@@ -10,7 +10,11 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTimerChangedDelegate, int32, NewRemainingTime);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPlayerArrayChangedDelegate);
 
+<<<<<<< Updated upstream
 // GamePhase Á¤ÀÇ
+=======
+// GamePhase
+>>>>>>> Stashed changes
 UENUM(BlueprintType)
 enum class EAFGamePhase : uint8
 {

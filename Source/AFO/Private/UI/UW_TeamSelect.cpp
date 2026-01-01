@@ -47,6 +47,30 @@ void UUW_TeamSelect::TryBindGameState()
 	bBound = true;
 	GetWorld()->GetTimerManager().ClearTimer(BindRetryHandle);
 
+<<<<<<< Updated upstream
+=======
+	BindPlayerDelegates();
+	RefreshUI();
+}
+
+void UUW_TeamSelect::BindPlayerDelegates()
+{
+	AGameStateBase* GS = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	if (!GS) return;
+
+	for (APlayerState* PS : GS->PlayerArray)
+	{
+		AAFPlayerState* AFPS = Cast<AAFPlayerState>(PS);
+		if (!AFPS) continue;
+
+		AFPS->OnPlayerInfoChanged.AddUniqueDynamic(this, &ThisClass::OnAnyPlayerTeamChanged);
+		AFPS->OnPlayerInfoChanged.AddUniqueDynamic(this, &ThisClass::OnAnyPlayerNameChanged);
+	}
+}
+
+void UUW_TeamSelect::OnAnyPlayerNameChanged(AAFPlayerState* ChangedPS)
+{
+>>>>>>> Stashed changes
 	RefreshUI();
 }
 

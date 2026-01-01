@@ -7,6 +7,8 @@
 #include "Components/ProgressBar.h"
 #include "AFHealthBarWidget.generated.h"
 
+class AAFPlayerCharacter;
+
 UCLASS()
 class AFO_API UAFHealthBarWidget : public UUserWidget
 {
@@ -15,12 +17,19 @@ class AFO_API UAFHealthBarWidget : public UUserWidget
 public:
 	// 위젯이 생성될 때 캐릭터를 전달받아 감시를 시작합니다.
 	UFUNCTION(BlueprintCallable, Category = "AFO|UI")
-	void BindToCharacter(AActor* OwningActor);
+	void BindToCharacter(AAFPlayerCharacter* NewCharacter);
 
 protected:
+
+	UPROPERTY(BlueprintReadOnly, Category = "AF")
+	class AAFPlayerCharacter* TargetCharacter;
+
+	UPROPERTY(meta = (BindWidget))
+	class UAFSkillMainWidget* SkillMainWidget;
+
 	/** AttributeComponent의 체력 변경 시 호출될 콜백 함수 */
 	UFUNCTION()
-	void HandleHealthChanged(float CurrentHealth, float MaxHealth, class AAFPlayerState* ChangedPlayer);
+	void HandleHealthChanged(float CurrentHealth, float MaxHealth);
 
 	/** 블루프린트에서 UI를 업데이트하기 위한 이벤트 */
 	UFUNCTION(BlueprintImplementableEvent, Category = "AFO|UI")

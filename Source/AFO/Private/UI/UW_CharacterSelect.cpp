@@ -38,9 +38,9 @@ void UUW_CharacterSelect::NativeConstruct()
 	{
 		if (AAFPlayerState* PS = PC->GetPlayerState<AAFPlayerState>())
 		{
-			if (!PS->OnTeamInfoChanged.IsAlreadyBound(this, &ThisClass::RefreshUI_FromDelegate))
+			if (!PS->OnPlayerInfoChanged.IsAlreadyBound(this, &ThisClass::RefreshUI_FromDelegate))
 			{
-				PS->OnTeamInfoChanged.AddDynamic(this, &ThisClass::RefreshUI_FromDelegate);
+				PS->OnPlayerInfoChanged.AddDynamic(this, &ThisClass::RefreshUI_FromDelegate);
 			}
 		}
 		else

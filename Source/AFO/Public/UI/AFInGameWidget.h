@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "AFO/Public/Game/AFGameState.h"
 #include "AFInGameWidget.generated.h"
 
 class UTextBlock;
@@ -15,44 +14,64 @@ UCLASS()
 class AFO_API UAFInGameWidget : public UUserWidget
 {
 	GENERATED_BODY()
-	
-public:
-	// =============================
-	// 1. 초기화 및 바인딩 진입점
-	// =============================
-	void InitializeTeamUI(TArray<APlayerState*> AllPlayerStates);
 
-// =============================
-// 2. 델리게이트 핸들러
-// =============================
+	// ===========================================
+	// 0. 초기화 및 동기화
+	// ===========================================
+#pragma region InitializeSetting
+protected:
+	virtual void NativeConstruct() override;
 
-	// 팀 스코어보드 핸들러
-	UFUNCTION()
-	void UpdatePlayerHealthBar(float CurrentHealth, float MaxHealth, class AAFPlayerState* TargetPS);
-	UFUNCTION()
-	void UpdatePlayerManaBar(float CurrentMana, float MaxMana, class AAFPlayerState* TargetPS);
-	UFUNCTION()
-	void UpdatePlayerKillCount(int32 NewKillCount, AAFPlayerState* TargetPS);
-	UFUNCTION()
-	void UpdatePlayerDeathCount(int32 NewDeathCount, AAFPlayerState* TargetPS);
-	
-	// 팀 총합 스코어 갱신 핸들러
-	UFUNCTION()
-	void UpdateTeamKillDeathScore(int32 NewValue, class AAFPlayerState* TargetPS);
+#pragma endregion
 
-	// 자신 전용 델리게이트 핸들러
+	// ===========================================
+	// 1. 델리게이트 핸들러
+	// ===========================================
+#pragma region DelegateHandler
+	// 실시간 수치 (HP, MP) 업데이트 - 내 HUD와 팀 스코어보드 공용
 	UFUNCTION()
-	void UpdateMyHealthBar(float NewHealth, float MaxHealth, AAFPlayerState* TargetPS);
+	void HandleAttributeChanged(float CurHP, float MaxHP, float CurMP, float MaxMP, AAFPlayerState* TargetPS);
+
+	// 점수 (Kill, Death) 업데이트
 	UFUNCTION()
-	void UpdateMyManaBar(float NewMana, float MaxMana, AAFPlayerState* TargetPS);
+	void HandleScoreChanged(int32 Kills, int32 Deaths, AAFPlayerState* TargetPS);
+
+	// 기본 정보 (팀, 이름, 사망여부 등) 업데이트
+	UFUNCTION()
+	void HandlePlayerInfoChanged(AAFPlayerState* PS);
 
 	// 타이머 델리게이트 핸들러
 	UFUNCTION()
 	void UpdateGameTimerText(int32 NewTime);
 
-// =============================
-// 3. UMG 위젯 변수
-// =============================
+	// 팀 총합 스코어 업데이트 핸들러
+	UFUNCTION()
+	void UpdateTeamTotalScore();
+#pragma endregion
+
+	// =============================
+	// 2. 내부 로직 및 바인딩
+	// =============================
+#pragma region Binding
+
+	void BindToPlayerState(AAFPlayerState* PS);
+
+	UFUNCTION()
+	void HandlePlayerArrayChanged(); // GameState로부터 호출됨
+
+	// 이미 UI 바인딩이 완료된 PlayerState들을 저장 (중복 방지)
+	UPROPERTY()
+	TSet<class AAFPlayerState*> BoundPlayerStates;
+
+	// 최대 인원수 (GameState 등에서 가져오도록 설정 가능)
+	int32 MaxPlayerCount = 4;
+
+#pragma endregion
+
+	// =============================
+	// 3. UMG 위젯 변수
+	// =============================
+#pragma region WidgetVariable
 protected:
 
 	// A. 플레이어 이름 (TextBlock)
@@ -107,55 +126,27 @@ protected:
 	TObjectPtr<UTextBlock> GameTimer;
 
 
-private:
-	// 모든 유효한 PlayerState를 팀 및 인덱스별로 저장. 팀 총합 스코어 계산
-	TMap<uint8, TArray<AAFPlayerState*>> TeamPlayerStates;
+
+#pragma endregion
+
+	// =============================
+	// 4. 게임 결과 위젯
+	// =============================
+#pragma region ResultWidget
 
 protected:
-	virtual void NativeConstruct() override;
-
-	// PlayerState가 유효한지 반복 확인하기 위한 타이머 핸들
-	FTimerHandle PlayerStateCheckTimerHandle;
-
-	// PlayerState를 확인하고 바인딩하는 함수
 	UFUNCTION()
-	void CheckAndBindPlayerState();
-	void BindToPlayerState(AAFPlayerState* PS);
+	void ShowGameResult();
 
-	bool bTeamUIInitialized = false; // 초기화 플래그
+	// 게임 승리 패배 결과 위젯
+	UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
+	TSubclassOf<UUserWidget> VictoryWidgetClass;
 
-	void CheckAndInitializeUI();
-	FTimerHandle InitTimerHandle;
+	UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
+	TSubclassOf<UUserWidget> LoseWidgetClass;
 
-	UFUNCTION()
-	void HandlePlayerArrayChanged();
+	UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
+	TSubclassOf<UUserWidget> DrawWidgetClass;
 
-
-	// 이미 UI 바인딩이 완료된 PlayerState들을 저장 (중복 방지)
-	UPROPERTY()
-	TSet<class AAFPlayerState*> BoundPlayerStates;
-
-	// 최대 인원수 (GameState 등에서 가져오도록 설정 가능)
-	int32 MaxPlayerCount = 4;
-
-
-
-	protected:
-		// 게임 승리 패배 결과 위젯
-		UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
-		TSubclassOf<UUserWidget> VictoryWidgetClass;
-
-		UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
-		TSubclassOf<UUserWidget> LoseWidgetClass;
-
-		UPROPERTY(EditDefaultsOnly, Category = "UI|Result")
-		TSubclassOf<UUserWidget> DrawWidgetClass;
-
-		UFUNCTION()
-		void ShowGameResult();
-
-		int32 RedTotalKills = 0;
-		int32 RedTotalDeaths = 0;
-		int32 BlueTotalKills = 0;
-		int32 BlueTotalDeaths = 0;
+#pragma endregion
 };

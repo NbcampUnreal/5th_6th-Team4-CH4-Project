@@ -116,4 +116,58 @@ void AAFGameState::OnRep_TeamPlayerArray()
 {
 	// 모든 클라이언트에서 실행됨
 	OnPlayerArrayChanged.Broadcast();
+<<<<<<< Updated upstream
 }
+=======
+}
+
+void AAFGameState::AddTeamScore(uint8 TeamID, bool bIsKill)
+{
+	if (!HasAuthority()) return;
+
+	if (TeamID == 0)
+	{
+		if (bIsKill) ++TeamRedKillScore;
+		else         ++TeamRedDeathScore;
+	}
+	else
+	{
+		if (bIsKill) ++TeamBlueKillScore;
+		else         ++TeamBlueDeathScore;
+	}
+
+	OnPlayerArrayChanged.Broadcast();
+	ForceNetUpdate();
+	OnRep_TeamScore();
+}
+
+void AAFGameState::OnRep_TeamScore()
+{
+	if (HasAuthority()) return;
+	OnPlayerArrayChanged.Broadcast();
+}
+
+void AAFGameState::SetMatchResult(EAFTeamId WinnerTeam)
+{
+	if (!HasAuthority()) return;
+
+	MatchResult.WinnerTeam = WinnerTeam;
+	MatchResult.RedKills = TeamRedKillScore;
+	MatchResult.BlueKills = TeamBlueKillScore;
+
+	OnMatchResultChanged.Broadcast(MatchResult);
+	ForceNetUpdate();
+}
+
+void AAFGameState::OnRep_GamePhase()
+{
+	if (HasAuthority()) return;
+	OnGamePhaseChanged.Broadcast(CurrentGamePhase);
+}
+
+void AAFGameState::OnRep_MatchResult()
+{
+	if (HasAuthority()) return;
+	OnMatchResultChanged.Broadcast(MatchResult);
+}
+>>>>>>> Stashed changes

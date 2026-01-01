@@ -4,17 +4,10 @@
 
 AAFArcher::AAFArcher()
 {
-	PrimaryActorTick.bCanEverTick = true;
-	bCanSprint = false;
-
-	AimYaw = 0.f;
-	AimPitch = 0.f;
-	AimAlpha = 1.f;
-	
-	// 기본 이동 속도 설정
-	GetCharacterMovement()->MaxWalkSpeed = 600.f;
+	CharacterKey = TEXT("Archer");
 }
 
+<<<<<<< Updated upstream
 void AAFArcher::BeginPlay()
 {
 	Super::BeginPlay();
@@ -34,3 +27,5 @@ void AAFArcher::Tick(float DeltaTime)
 	AimPitch = DeltaRot.Pitch;
 	AimAlpha = 1.f;
 }
+=======
+>>>>>>> Stashed changes

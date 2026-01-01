@@ -7,6 +7,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
 #include "Player/AFPlayerController.h"
+#include "Game/AFGameInstance.h"
+#include "Character/AFPlayerCharacter.h"
 
 AAFGameMode::AAFGameMode()
 {
@@ -112,10 +114,6 @@ void AAFGameMode::PostLogin(APlayerController* NewPlayer)
 		}
 
 		PS->SetTeamInfo(AssignedTeam, static_cast<uint8>(TeamMemberIndex));
-		PS->SetDead(false);
-
-		PS->SetHealth(PS->GetMaxHealth(), PS->GetMaxHealth());
-		PS->SetMana(PS->GetMaxMana(), PS->GetMaxMana());
 
 		UE_LOG(LogTemp, Log, TEXT("[AFO] Player Joined: %s | Team: %s | TeamIdx: %d"),
 			*NewPlayer->GetName(),
@@ -213,17 +211,13 @@ AActor* AAFGameMode::ChoosePlayerStart_Implementation(AController* Player)
 
 void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* KillerController)
 {
-	if (!HasAuthority() || !VictimController)
-	{
-		return;
-	}
+	if (!HasAuthority() || !VictimController) return;
 
 	AAFPlayerState* VictimPS = VictimController->GetPlayerState<AAFPlayerState>();
-	if (!VictimPS)
-	{
-		return;
-	}
+	AAFGameState* GS = GetAFGameState();
+	if (!VictimPS || !GS) return;
 
+<<<<<<< Updated upstream
 	if (VictimPS->IsDead())
 	{
 		return;
@@ -240,12 +234,26 @@ void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* 
 		}
 
 		ReportKill(KillerController);
+=======
+	// 1. 피해자 처리
+	VictimPS->AddDeath(); 
+	GS->AddTeamScore(VictimPS->GetTeamID(), false); // 팀 데스 추가
+
+	// 2. 킬러 처리
+	AAFPlayerState* KillerPS = KillerController ? KillerController->GetPlayerState<AAFPlayerState>() : nullptr;
+	if (KillerPS && KillerPS != VictimPS)
+	{
+		KillerPS->AddKill(); // 개인 킬++
+		GS->AddTeamScore(KillerPS->GetTeamID(), true); // 팀 킬 추가
+>>>>>>> Stashed changes
 	}
+	
 
 	if (APawn* Pawn = VictimController->GetPawn())
 	{
 		Pawn->DetachFromControllerPendingDestroy();
-		Pawn->Destroy();
+		Pawn->SetLifeSpan(5.0f);
+		//Pawn->Destroy();
 	}
 
 	// kill log
@@ -317,16 +325,9 @@ void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* 
 void AAFGameMode::EndRound()
 {
 	AAFGameState* GS = GetAFGameState();
-	if (!GS)
-	{
-		UE_LOG(LogTemp, Error, TEXT("AFGameMode::EndRound - GameState is null"));
-		return;
-	}
+	if (!GS) return;
 
-	UE_LOG(LogTemp, Warning, TEXT("Round End → Red: %d / Blue: %d"),
-		GS->TeamRedKillScore,
-		GS->TeamBlueKillScore);
-
+<<<<<<< Updated upstream
 	if (GS->TeamRedKillScore > GS->TeamBlueKillScore)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("RED TEAM WINS THE ROUND"));
@@ -340,11 +341,55 @@ void AAFGameMode::EndRound()
 		UE_LOG(LogTemp, Warning, TEXT("DRAW ROUND"));
 	}
 
+=======
+	// 1. 승자 판정 로직 (기존 유지)
+	EAFTeamId WinnerTeam = EAFTeamId::None;
+	if (GS->TeamRedKillScore > GS->TeamBlueKillScore) WinnerTeam = EAFTeamId::Red;
+	else if (GS->TeamBlueKillScore > GS->TeamRedKillScore) WinnerTeam = EAFTeamId::Blue;
+
+	GS->SetMatchResult(WinnerTeam);
+>>>>>>> Stashed changes
 	GS->SetGamePhase(EAFGamePhase::EAF_GameOver);
 
+	// ==========================================================
+	// [추가 포인트] 2. GameInstance에 최종 통계 저장
+	// 레벨이 넘어가기(ServerTravel) 직전에 모든 PS의 데이터를 담습니다.
+	// ==========================================================
+	if (UAFGameInstance* GI = Cast<UAFGameInstance>(GetGameInstance()))
+	{
+		GI->ClearResults(); // 이전 판 데이터 삭제
+
+		for (APlayerState* PS : GS->PlayerArray)
+		{
+			if (AAFPlayerState* AFPS = Cast<AAFPlayerState>(PS))
+			{
+				FAFGameResultData Result;
+				Result.PlayerName = AFPS->GetPlayerName();
+				Result.Kills = AFPS->GetKillCount();
+				Result.Deaths = AFPS->GetDeathCount();
+				// 아래 데이터는 PlayerState에 추가할 예정인 변수들
+				Result.DamageDealt = AFPS->GetTotalDamageDealt();
+				Result.DamageTaken = AFPS->GetTotalDamageTaken();
+				Result.Healing = AFPS->GetTotalHealingDone();
+
+				GI->FinalMatchResults.Add(Result);
+			}
+		}
+	}
+
+	// 3. 레벨 이동 (5초 대기)
 	if (UWorld* World = GetWorld())
 	{
+<<<<<<< Updated upstream
 		World->ServerTravel(TEXT("TitleMenu"));
+=======
+		FTimerHandle TravelHandle;
+		World->GetTimerManager().SetTimer(TravelHandle, FTimerDelegate::CreateLambda([World]()
+			{
+				// SeamlessTravel을 사용하여 결과창 레벨로 이동
+				World->ServerTravel(TEXT("/Game/Maps/Lobby/ResultLevel?Level=Result"));
+			}), 5.0f, false);
+>>>>>>> Stashed changes
 	}
 }
 
@@ -375,6 +420,31 @@ void AAFGameMode::HandleSeamlessTravelPlayer(AController*& C)
 	}
 
 	RestartPlayer(C); // 여기서 위 GetDefaultPawnClassForController가 적용됨
+}
+
+void AAFGameMode::RestartPlayer(AController* NewPlayer)
+{
+	if (!NewPlayer) return;
+
+	AAFPlayerState* PS = NewPlayer->GetPlayerState<AAFPlayerState>();
+	// 1. 이름 검사: Unknown이거나 비어있으면 Mage 등으로 강제 배정 (테스트용)
+	FString SelectedName = PS ? PS->GetSelectedCharacterKey() : TEXT("Mage");
+
+	if (SelectedName.IsEmpty() || SelectedName.Equals(TEXT("Unknown")))
+	{
+		UE_LOG(LogTemp, Error, TEXT("@@@ [GameMode] Invalid Character Name! Forcing 'Mage' for testing."));
+		SelectedName = TEXT("Mage");
+	}
+
+	Super::RestartPlayer(NewPlayer); // 여기서 Pawn이 스폰됨
+
+	AAFPlayerCharacter* AFChar = Cast<AAFPlayerCharacter>(NewPlayer->GetPawn());
+	if (AFChar)
+	{
+		// 2. 스폰 직후 데이터 주입
+		AFChar->InitializeCharacterData(SelectedName);
+		UE_LOG(LogTemp, Warning, TEXT("@@@ [GameMode] Initialized %s for %s"), *SelectedName, *NewPlayer->GetName());
+	}
 }
 
 //// 캐릭터 선택 화면 구현 전 임시 캐릭터 설정 함수
