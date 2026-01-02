@@ -16,9 +16,10 @@
 #include "UI/AFHealthBarWidget.h"
 #include "Blueprint/UserWidget.h"
 #include <Components/WidgetComponent.h>
-
+#include "Game/AFGameMode.h"
 #include "Components/AFStatusEffectComponent.h"
 #include "Gimmick/AFBuffItem.h"
+#include "Components/CapsuleComponent.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
@@ -966,7 +967,7 @@ void AAFPlayerCharacter::InitializeCharacterData(FString CharacterName)
 				GetCharacterMovement()->MaxWalkSpeed = BaseStats.MoveSpeed;
 			}
 
-			UE_LOG(LogTemp, Log, TEXT("[%s] 스탯 로드 성공! HP: %f"), *CharacterName, BaseStats.MaxHp);
+			UE_LOG(LogTemp, Log, TEXT("[%s] 스탯 로드 성공! HP: %f"), *CharacterName, BaseStats.Maxhp);
 		}
 	}
 
@@ -991,6 +992,51 @@ void AAFPlayerCharacter::InitializeCharacterData(FString CharacterName)
 				UE_LOG(LogTemp, Warning, TEXT("[%s] 스킬 로드 실패! 데이터 테이블을 확인하세요."), *SkillRowName.ToString());
 			}
 		}
+	}
+}
+
+
+void AAFPlayerCharacter::StartDeath(AController* LastInstigator)
+{
+	if (!HasAuthority()) return;
+
+	// 1. 서버에서 게임모드에 알림 (점수/리스폰 처리)
+	if (AAFGameMode* GM = GetWorld()->GetAuthGameMode<AAFGameMode>())
+	{
+		// LastInstigator는 나를 죽인 사람 (낙사면 nullptr)
+		GM->HandlePlayerDeath(GetController(), LastInstigator);
+	}
+
+	// 2. 모든 클라이언트에게 사망 연출 명령
+	Multicast_OnDeath();
+
+}
+
+void AAFPlayerCharacter::Multicast_OnDeath_Implementation()
+{
+	// 애니메이션 재생 (사망 몽타주)
+	if (DeathMontage)
+	{
+		PlayAnimMontage(DeathMontage);
+	}
+
+	// 전투 중이던 플래그들 정리
+	bIsAttacking = false;
+	bIsUsingSkill = false;
+
+	// 이동 및 콜리전 정지
+	GetCharacterMovement()->DisableMovement();
+	GetCapsuleComponent()->SetCollisionResponseToAllChannels(ECR_Ignore);
+}
+
+void AAFPlayerCharacter::NotifyActorBeginOverlap(AActor* OtherActor)
+{
+	Super::NotifyActorBeginOverlap(OtherActor);
+
+	if (HasAuthority() && OtherActor && OtherActor->ActorHasTag(TEXT("WaterFloor")))
+	{
+		// 낙사 (가해자 nullptr)
+		StartDeath(nullptr);
 	}
 }
 

@@ -286,4 +286,19 @@ public:
 		// --- 초기화 함수 ---
 		/** 에디터에서 설정한 캐릭터 이름(RowName)을 기반으로 모든 정보를 로드합니다. */
 		void InitializeCharacterData(FString CharacterName);
+
+
+		public:
+			// 서버에서 호출될 사망 처리 함수
+			UFUNCTION(BlueprintCallable, Category = "AF|Combat")
+			void StartDeath(AController* LastInstigator = nullptr);
+
+protected:
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnDeath();
+
+	void NotifyActorBeginOverlap(AActor* OtherActor); // 물에 빠졌을 때
+
+	UPROPERTY(EditDefaultsOnly, Category = "AF|Animation")
+	TObjectPtr<UAnimMontage> DeathMontage;
 };

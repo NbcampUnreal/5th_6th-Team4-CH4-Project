@@ -293,80 +293,48 @@ void AAFMage::Multicast_SpawnQEffectFollow_Implementation(AActor* TargetActor)
 
 void AAFMage::SpawnHeavyFx_Server()
 {
-	if (!HasAuthority()) return;
-	if (bHeavyFxPlayed) return; // 중복 방지(타이머/노티파이 둘 다 대비)
-	bHeavyFxPlayed = true;
-
-	const float Radius = (HeavyAttackData.SkillRange > 0.f) ? HeavyAttackData.SkillRange : 250.f;
-	const float Damage = (HeavyAttackData.Damage > 0.f) ? HeavyAttackData.Damage : 40.f;
-
-	// 1) 데미지 판정(서버)
-	HandleSkillHitCheck(Radius, Damage, 0.f);
-
-	// 2) 이펙트 위치 계산(바닥 트레이스) + 멀티캐스트
-	const FVector FxBase = GetActorLocation()
-		+ GetActorForwardVector() * Heavy_FxForward
-		+ FVector(0.f, 0.f, Heavy_FxUp);
-
-	FHitResult Hit;
-	const FVector TraceStart = FxBase + FVector(0, 0, Heavy_TraceStartUp);
-	const FVector TraceEnd   = FxBase - FVector(0, 0, 5000.f);
-
-	FVector FxLoc = FxBase;
-	if (GetWorld() && GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility))
+	if (SkillComponent == nullptr)
 	{
-		FxLoc = Hit.ImpactPoint;
+		SkillComponent = FindComponentByClass<UAFSkillComponent>();
 	}
 
-	Multicast_SpawnHeavyEffectBP(FxLoc, FRotator::ZeroRotator);
-}
-
-AActor* AAFMage::FindQTarget()
-{
-	if (!GetWorld()) return nullptr;
-
-	TArray<FOverlapResult> Overlaps;
-	FCollisionShape Sphere = FCollisionShape::MakeSphere(Q_TargetSearchRadius);
-
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(this);
-
-	const FVector Center = GetActorLocation();
-
-	if (!GetWorld()->OverlapMultiByChannel(Overlaps, Center, FQuat::Identity, ECC_Pawn, Sphere, Params))
-		return nullptr;
-
-	AActor* BestTarget = nullptr;
-	float BestScore = -1.f;
-
-	const FVector Forward = GetActorForwardVector();
-	const float CosLimit = FMath::Cos(FMath::DegreesToRadians(Q_TargetMaxAngleDeg));
-
-	for (const FOverlapResult& R : Overlaps)
+	if (SkillComponent)
 	{
-		AActor* A = R.GetActor();
-		if (!A || A == this) continue;
-		if (IsAlly(A)) continue; // 아군 제외
+		bool bCanUse = SkillComponent->CanUseSkill(TEXT("Mage_Right"));
 
-		const FVector To = (A->GetActorLocation() - Center);
-		const float Dist = To.Size();
-		if (Dist <= KINDA_SMALL_NUMBER) continue;
-
-		const FVector Dir = To / Dist;
-		const float Dot = FVector::DotProduct(Forward, Dir);
-		if (Dot < CosLimit) continue; // 정면 각도 필터
-
-		// 점수: 정면(도트) 우선, 거리 조금 반영(가까울수록 가산)
-		const float Score = Dot * 1000.f + (1.f / Dist) * 200.f;
-
-		if (Score > BestScore)
+		if (bCanUse)
 		{
-			BestScore = Score;
-			BestTarget = A;
+			bIsUsingSkill = true;
+			SkillComponent->StartCooldown(TEXT("Mage_Right"), HeavyAttackData.Cooldown);
 		}
-	}
 
-	return BestTarget;
+		if (!HasAuthority()) return;
+		if (bHeavyFxPlayed) return; // 중복 방지(타이머/노티파이 둘 다 대비)
+		bHeavyFxPlayed = true;
+
+		const float Radius = (HeavyAttackData.SkillRange > 0.f) ? HeavyAttackData.SkillRange : 250.f;
+		const float Damage = (HeavyAttackData.Damage > 0.f) ? HeavyAttackData.Damage : 40.f;
+
+		// 1) 데미지 판정(서버)
+		HandleSkillHitCheck(Radius, Damage, 0.f);
+
+		// 2) 이펙트 위치 계산(바닥 트레이스) + 멀티캐스트
+		const FVector FxBase = GetActorLocation()
+			+ GetActorForwardVector() * Heavy_FxForward
+			+ FVector(0.f, 0.f, Heavy_FxUp);
+
+		FHitResult Hit;
+		const FVector TraceStart = FxBase + FVector(0, 0, Heavy_TraceStartUp);
+		const FVector TraceEnd = FxBase - FVector(0, 0, 5000.f);
+
+		FVector FxLoc = FxBase;
+		if (GetWorld() && GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility))
+		{
+			FxLoc = Hit.ImpactPoint;
+		}
+
+		Multicast_SpawnHeavyEffectBP(FxLoc, FRotator::ZeroRotator);
+	}
 }
 
 // 통합 공격 로직
@@ -438,11 +406,6 @@ void AAFMage::HandleOnCheckHit()
 			Multicast_SpawnQEffectBP(FxLoc, FRotator::ZeroRotator);
 		}
 
-		if (CurrentPos > 1.4f)
-		{
-			HandleSkillHitCheck(QSkillData.SkillRange, QSkillData.Damage, 0.f);
-		}
-		else
 		{
 			HandleSkillHitCheck(QSkillData.SkillRange * 0.5f, QSkillData.Damage * 0.2f, 0.f);
 		}
@@ -457,15 +420,32 @@ void AAFMage::HandleOnCheckHit()
 	
 	else if (HeavyAttackMontage && Anim->Montage_IsPlaying(HeavyAttackMontage))
 	{
+		if (SkillComponent == nullptr)
+		{
+			SkillComponent = FindComponentByClass<UAFSkillComponent>();
+		}
+
+		if (SkillComponent)
+		{
+			bool bCanUse = SkillComponent->CanUseSkill(TEXT("Mage_Right"));
+
+			if (bCanUse)
+			{
+				bIsUsingSkill = true;
+				SkillComponent->StartCooldown(TEXT("Mage_Right"), HeavyAttackData.Cooldown);
+				HandleSkillHitCheck(HeavyAttackData.SkillRange, HeavyAttackData.Damage, 0.f);
+			}
+		}
+
+
 		const float CurrentPos = Anim->Montage_GetPosition(HeavyAttackMontage);
 
 		const float Radius = (HeavyAttackData.SkillRange > 0.f) ? HeavyAttackData.SkillRange : 250.f;
 		const float Damage = (HeavyAttackData.Damage > 0.f) ? HeavyAttackData.Damage : 40.f;
 
-		if (CurrentPos >= Heavy_FxDelay)
-		{
-			HandleSkillHitCheck(Radius, Damage, 0.f);
-		}
+	
+			
+	
 
 		if (!bHeavyFxPlayed && CurrentPos >= Heavy_FxDelay)
 		{
@@ -554,7 +534,6 @@ void AAFMage::LoadMageData()
 		if (FAFSkillInfo* QRow = SkillDataTable->FindRow<FAFSkillInfo>(TEXT("Mage_Q"), ContextString))
 		{
 			QSkillData = *QRow;
-			UE_LOG(LogTemp, Log, TEXT("@@@ [Data] Mage_Q Loaded - Cooldown: %f, Mana: %f"), QSkillData.Cooldown, QSkillData.ManaCost);
 		}
 		else { UE_LOG(LogTemp, Error, TEXT("@@@ [Data] Failed to find Mage_Q in DataTable!")); }
 	}
@@ -571,7 +550,7 @@ void AAFMage::LoadMageData()
 
 	if (FAFSkillInfo* HeavyRow = SkillDataTable->FindRow<FAFSkillInfo>(TEXT("Mage_Right"), ContextString))
 	{
-		HeavyAttackData = *HeavyRow; // 헤더에 FAFSkillInfo HeavyAttackData; 선언 필요
+		HeavyAttackData = *HeavyRow; 
 	}
 
 	// 2. 서버일 때만 PlayerState 스탯 설정
@@ -583,53 +562,11 @@ void AAFMage::LoadMageData()
 			FAFPlayerCharacterStatRow* StatRow = StatDataTable->FindRow<FAFPlayerCharacterStatRow>(TEXT("Mage"), ContextString);
 			if (StatRow)
 			{
-				AFPS->SetHealth(StatRow->MaxHp, StatRow->MaxHp);
-				AFPS->SetMana(StatRow->MaxMana, StatRow->MaxMana);
+				AFPS->SetHealth(StatRow->Maxhp, StatRow->Maxhp);
+				AFPS->SetMana(StatRow->Maxmana, StatRow->Maxmana);
+				UE_LOG(LogTemp, Warning, TEXT("MaxHP Mana Binding!!"));
 			}
 		}
 	}
 }
-
-/*
-void AAFPlayerCharacter::InputHeavyAttack(const FInputActionValue& InValue)
-{
-	// 로컬에서의 최소한의 방어 코드
-	if (GetCharacterMovement()->IsFalling() || bIsUsingSkill || bIsHeavyAttacking) return;
-}
-
-void AAFMage::ServerRPC_HeavyAttack_Implementation()
-{
-
-	if (bIsUsingSkill || bIsHeavyAttacking) return;
-if (!HeavyAttackMontage) return;
-bIsAttacking = true;
-bIsHeavyAttacking = true;
-
-if (SkillComponent)
-{
-// HeavyAttackData.Cooldown 등 로드된 값을 사용하세요
-SkillComponent->StartCooldown(TEXT("Mage_Right"), HeavyAttackData.Cooldown);
-}
-if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
-{
-MoveComp->StopMovementImmediately();
-		MoveComp->DisableMovement();
-	}
-
-	// 5. 모든 클라이언트에게 재생 명령
-	Multicast_PlayHeavyAttack();
-}
-
-void AAFMage::Multicast_PlayHeavyAttack_Implementation()
-{
-	// 로컬 클라이언트와 다른 모든 플레이어 화면에서 몽타주 재생
-	PlayAnimMontage(HeavyAttackMontage);
-
-	// 로컬 클라이언트에서 이동 제한 (예측성 처리)
-	if (IsLocallyControlled())
-	{
-		LockMovement();
-	}
-}
-*/
 

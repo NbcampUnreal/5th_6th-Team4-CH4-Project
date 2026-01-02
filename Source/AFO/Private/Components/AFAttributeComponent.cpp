@@ -1,7 +1,5 @@
 // AFAttributeComponent.cpp
 
-
-
 #include "Components/AFAttributeComponent.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
@@ -12,6 +10,7 @@
 #include "Net/UnrealNetwork.h"
 #include "NiagaraComponent.h"
 #include "NiagaraFunctionLibrary.h"
+#include "Character/AFPlayerCharacter.h"
 
 UAFAttributeComponent::UAFAttributeComponent()
 {
@@ -98,6 +97,10 @@ void UAFAttributeComponent::ApplyDamage(float Damage, AController* InstigatedBy)
 
 	if (Health <= 0.f)
 	{
+		if (AAFPlayerCharacter* OwnerChar = Cast<AAFPlayerCharacter>(GetOwner()))
+		{
+			OwnerChar->StartDeath(InstigatedBy);
+		}
 		HandleDeath(InstigatedBy);
 	}
 }
@@ -152,6 +155,8 @@ void UAFAttributeComponent::HandleDeath(AController* InstigatedBy)
 			GM->HandlePlayerDeath(VictimController, InstigatedBy);
 		}
 	}
+
+
 }
 
 void UAFAttributeComponent::SyncHealthToPlayerState()

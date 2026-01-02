@@ -52,14 +52,14 @@ struct FAFPlayerCharacterStatRow : public FTableRowBase
     GENERATED_BODY()
 
 public:
-    FAFPlayerCharacterStatRow() : MaxHp(100.f), Attack(10.f), MoveSpeed(600.f) {}
+    FAFPlayerCharacterStatRow() : Maxhp(100.f), Attack(10.f), MoveSpeed(600.f) {}
 
     // --- 생존 관련 ---
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat | Vitality")
-    float MaxHp;
+    float Maxhp;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat | Vitality")
-    float MaxMana;
+    float Maxmana;
 
     // --- 전투 관련 ---
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat | Combat")

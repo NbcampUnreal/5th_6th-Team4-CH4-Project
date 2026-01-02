@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Character/AFPlayerCharacter.h"
+#include "Types/AFGameTypes.h"
 #include "AFAurora.generated.h"
 
 UCLASS()
@@ -32,4 +33,31 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
+	float AttackDamage = 20.f;
+	bool bHeavyHitChecked = false;
+
+	/** --- 데이터 로드 로직 --- */
+	void LoadAuroraData();
+
+	// 스킬 컴포넌트를 저장할 멤버 변수 선언
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<class UAFSkillComponent> SkillComponent;
+
+	virtual void HandleOnCheckHit() override;
+	virtual void HandleSkillHitCheck(float Radius, float Damage, float RotationOffset) override;
+
+	virtual void ServerRPC_SkillE_Implementation() override;
+	virtual void ServerRPC_SkillQ_Implementation() override;
+
+	// 내부적으로 사용할 스킬 데이터 캐싱 (매번 FindRow 방지)
+	FAFSkillInfo QSkillData;
+	FAFSkillInfo ESkillData;
+	FAFSkillInfo HeavyAttackData;
+
+	virtual void OnRep_PlayerState() override;
 };

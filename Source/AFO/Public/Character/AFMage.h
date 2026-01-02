@@ -83,8 +83,6 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_SpawnQEffectFollow(AActor* TargetActor);
 
-	AActor* FindQTarget();
-
 	UPROPERTY(EditAnywhere, Category="Mage|Skill Q|Follow")
 	float Q_TargetSearchRadius = 1200.f;
 
@@ -147,14 +145,6 @@ protected:
 	// 부모의 RPC를 오버라이드 (Implementation만 작성하면 됨)
 	virtual void ServerRPC_SkillE_Implementation() override;
 	virtual void ServerRPC_SkillQ_Implementation() override;
-
-	//virtual void InputHeavyAttack(const FInputActionValue& InValue) override;
-	
-	// virtual void ServerRPC_HeavyAttack_Implementation() override;
-
-	// UFUNCTION(NetMulticast, Unreliable)
-	// void Multicast_PlayHeavyAttack();
-
 
 	// Mage 전용 패시브를 위해 판정 함수 오버라이드
 	virtual void HandleSkillHitCheck(float Radius, float Damage, float RotationOffset) override;

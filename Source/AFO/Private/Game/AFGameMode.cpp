@@ -265,7 +265,8 @@ void AAFGameMode::HandlePlayerDeath(AController* VictimController, AController* 
 	if (APawn* Pawn = VictimController->GetPawn())
 	{
 		Pawn->DetachFromControllerPendingDestroy();
-		Pawn->Destroy();
+		Pawn->SetLifeSpan(1.0f);
+		// Pawn->Destroy();
 	}
 
 	// kill log
