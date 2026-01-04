@@ -3,92 +3,23 @@
 #include "Blueprint/UserWidget.h"
 #include "Game/AFTeamSelectGameMode.h"
 #include "Game/AFCharacterSelectGameMode.h"
-#include "UObject/UObjectGlobals.h"
-#include "TimerManager.h"
 
 void AAFLobbyPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+
 	if (!IsLocalController()) return;
 
-	PostLoadMapHandle = FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
-		this, &ThisClass::HandlePostLoadMap
-	);
-
-	EnsureUI();
-}
-
-void AAFLobbyPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
-{
-	if (PostLoadMapHandle.IsValid())
-	{
-		FCoreUObjectDelegates::PostLoadMapWithWorld.Remove(PostLoadMapHandle);
-		PostLoadMapHandle.Reset();
-	}
-
-	if (GetWorld())
-	{
-		GetWorldTimerManager().ClearTimer(EnsureUITimer);
-	}
-
-	Super::EndPlay(EndPlayReason);
-}
-
-void AAFLobbyPlayerController::ReceivedPlayer()
-{
-	Super::ReceivedPlayer();
-	if (!IsLocalController()) return;
-
-	UE_LOG(LogTemp, Warning, TEXT("[UI] ReceivedPlayer -> EnsureUI"));
-	EnsureUI();
+	SetupUIForCurrentMap();
 }
 
 void AAFLobbyPlayerController::PostSeamlessTravel()
 {
 	Super::PostSeamlessTravel();
+
 	if (!IsLocalController()) return;
 
-	UE_LOG(LogTemp, Warning, TEXT("[UI] PostSeamlessTravel -> EnsureUI"));
-	EnsureUI();
-}
-
-void AAFLobbyPlayerController::BeginPlayingState()
-{
-	Super::BeginPlayingState();
-	if (!IsLocalController()) return;
-
-	UE_LOG(LogTemp, Warning, TEXT("[UI] BeginPlayingState -> EnsureUI"));
-	EnsureUI();
-}
-
-void AAFLobbyPlayerController::HandlePostLoadMap(UWorld* LoadedWorld)
-{
-	if (!IsLocalController()) return;
-	if (!LoadedWorld || LoadedWorld != GetWorld()) return;
-
-	UE_LOG(LogTemp, Warning, TEXT("[UI] PostLoadMapWithWorld -> EnsureUI"));
-	EnsureUI();
-}
-
-void AAFLobbyPlayerController::EnsureUI()
-{
-	if (!GetWorld()) return;
-
-	GetWorldTimerManager().SetTimerForNextTick([this]()
-		{
-			if (IsValid(this))
-			{
-				SetupUIForCurrentMap();
-			}
-		});
-
-	GetWorldTimerManager().SetTimer(
-		EnsureUITimer,
-		this,
-		&ThisClass::SetupUIForCurrentMap,
-		0.2f,
-		true
-	);
+	SetupUIForCurrentMap();
 }
 
 void AAFLobbyPlayerController::ClearCurrentUI()
@@ -104,9 +35,7 @@ void AAFLobbyPlayerController::SetUIInputMode(bool bUIOnly)
 {
 	if (bUIOnly)
 	{
-		FInputModeGameAndUI Mode;
-		Mode.SetHideCursorDuringCapture(false);
-		Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		FInputModeUIOnly Mode;
 		SetInputMode(Mode);
 		bShowMouseCursor = true;
 	}
@@ -120,58 +49,39 @@ void AAFLobbyPlayerController::SetUIInputMode(bool bUIOnly)
 
 void AAFLobbyPlayerController::SetupUIForCurrentMap()
 {
+	ClearCurrentUI();
+
 	const FString MapName = UGameplayStatics::GetCurrentLevelName(this, true);
-
-	UE_LOG(LogTemp, Warning, TEXT("[UI] SetupUI Map=%s Local=%d PC=%s TeamWBP=%s CharWBP=%s Cur=%s"),
-		*MapName,
-		IsLocalController() ? 1 : 0,
-		*GetClass()->GetName(),
-		TeamSelectWidgetClass ? TEXT("OK") : TEXT("NULL"),
-		CharacterSelectWidgetClass ? TEXT("OK") : TEXT("NULL"),
-		CurrentWidget ? TEXT("EXIST") : TEXT("NONE"));
-
-	TSubclassOf<UUserWidget> DesiredClass = nullptr;
 
 	if (MapName == TEXT("AFOTeamSelect"))
 	{
-		DesiredClass = TeamSelectWidgetClass;
+		if (TeamSelectWidgetClass)
+		{
+			CurrentWidget = CreateWidget<UUserWidget>(this, TeamSelectWidgetClass);
+			if (CurrentWidget)
+			{
+				CurrentWidget->AddToViewport();
+				SetUIInputMode(true);
+			}
+		}
 	}
 	else if (MapName == TEXT("AFOCharacterSelectMap"))
 	{
-		DesiredClass = CharacterSelectWidgetClass;
+		if (CharacterSelectWidgetClass)
+		{
+			CurrentWidget = CreateWidget<UUserWidget>(this, CharacterSelectWidgetClass);
+			if (CurrentWidget)
+			{
+				CurrentWidget->AddToViewport();
+				SetUIInputMode(true);
+			}
+		}
 	}
-
-	if (!DesiredClass)
+	else
 	{
-		ClearCurrentUI();
+		// 배틀존 등
 		SetUIInputMode(false);
-		GetWorldTimerManager().ClearTimer(EnsureUITimer);
-		return;
 	}
-
-	if (CurrentWidget && CurrentWidget->IsA(DesiredClass))
-	{
-		SetUIInputMode(true);
-		GetWorldTimerManager().ClearTimer(EnsureUITimer);
-		return;
-	}
-
-	ClearCurrentUI();
-
-	CurrentWidget = CreateWidget<UUserWidget>(this, DesiredClass);
-	if (!CurrentWidget)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[UI] CreateWidget FAILED Map=%s Class=%s"),
-			*MapName, *DesiredClass->GetName());
-		return;
-	}
-
-	CurrentWidget->AddToViewport();
-	SetUIInputMode(true);
-
-	GetWorldTimerManager().ClearTimer(EnsureUITimer);
-
-	UE_LOG(LogTemp, Warning, TEXT("[UI] Widget Added: %s"), *DesiredClass->GetName());
 }
 
 void AAFLobbyPlayerController::ServerRequestSetTeam_Implementation(uint8 NewTeamId)
@@ -196,7 +106,7 @@ void AAFLobbyPlayerController::ServerRequestAdvanceToCharacterSelect_Implementat
 	{
 		if (!GM->AdvanceToCharacterSelect())
 		{
-			ClientShowMessage(TEXT("조건 미달: 2명 접속 + RED1/BLUE1가 되어야 합니다."));
+			ClientShowMessage(TEXT("조건 미달: 4명 접속 + RED2/BLUE2가 되어야 합니다."));
 		}
 	}
 }

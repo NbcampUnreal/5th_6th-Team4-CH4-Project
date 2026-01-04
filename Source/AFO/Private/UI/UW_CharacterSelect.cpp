@@ -34,30 +34,18 @@ void UUW_CharacterSelect::NativeConstruct()
 		}
 	}
 
-	if (APlayerController* PC = GetOwningPlayer())
+	if (GetWorld())
 	{
-		if (AAFPlayerState* PS = PC->GetPlayerState<AAFPlayerState>())
-		{
-			if (!PS->OnTeamInfoChanged.IsAlreadyBound(this, &ThisClass::RefreshUI_FromDelegate))
-			{
-				PS->OnTeamInfoChanged.AddDynamic(this, &ThisClass::RefreshUI_FromDelegate);
-			}
-		}
-		else
-		{
-			GetWorld()->GetTimerManager().SetTimer(
-				RefreshTimerHandle,
-				this,
-				&ThisClass::RefreshUI,
-				0.2f,
-				true
-			);
-		}
+		GetWorld()->GetTimerManager().SetTimer(
+			RefreshTimerHandle,
+			this,
+			&ThisClass::RefreshUI,
+			0.2f,
+			true
+		);
 	}
 
 	RefreshUI();
-
-	GetWorld()->GetTimerManager().SetTimer(RefreshTimerHandle, this, &ThisClass::RefreshUI, 0.5f, true);
 }
 
 void UUW_CharacterSelect::OnClickChar0() { SelectCharacter(0); }
@@ -105,11 +93,6 @@ void UUW_CharacterSelect::RefreshUI()
 	}
 
 	RebuildPlayerList();
-}
-
-void UUW_CharacterSelect::RefreshUI_FromDelegate(AAFPlayerState* ChangedPS)
-{
-	RefreshUI();
 }
 
 void UUW_CharacterSelect::RebuildPlayerList()

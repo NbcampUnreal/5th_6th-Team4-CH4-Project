@@ -5,22 +5,13 @@
 #include "InputAction.h"
 #include "AFPlayerCharacter.generated.h"
 
-class UAFStatusEffectComponent;
 class USpringArmComponent;
 class UCameraComponent;
 class UAnimMontage;
 struct FInputActionValue;
 class UAFAttributeComponent;
+class UAFStatusEffectComponent;
 
-
-UENUM(BlueprintType)
-enum class EAFHitDir : uint8
-{
-	Front,
-	Back,
-	Left,
-	Right
-};
 
 UCLASS()
 class AFO_API AAFPlayerCharacter : public ACharacter
@@ -118,21 +109,20 @@ protected:
 	void InputHeavyAttack(const FInputActionValue& InValue);
 	
 	bool bIsHeavyAttacking = false;
-	
-	UPROPERTY(EditDefaultsOnly, Category="Hit")
-	TObjectPtr<UAnimMontage> HitReactMontage_Front;
 
-	UPROPERTY(EditDefaultsOnly, Category="Hit")
-	TObjectPtr<UAnimMontage> HitReactMontage_Back;
+	// AFPlayerCharacter.h
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
+	UAFStatusEffectComponent* StatusEffectComp;
 
-	UPROPERTY(EditDefaultsOnly, Category="Hit")
-	TObjectPtr<UAnimMontage> HitReactMontage_Left;
+	// 사망 처리
+public:
+	void OnDeath();
 
-	UPROPERTY(EditDefaultsOnly, Category="Hit")
-	TObjectPtr<UAnimMontage> HitReactMontage_Right;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Hit")
-	bool bIsHit = false;
+protected:
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	UAnimMontage* DeathMontage;
+
+
 
 public:
 	void Attack();
@@ -152,8 +142,6 @@ public:
 	virtual void EndAttack(UAnimMontage* InMontage, bool bInterruped);
 	
 	void HandleOnCheckInputAttack_FromNotify(UAnimInstance* Anim);
-	
-	void TriggerHitReact_FromAttacker(AActor* Attacker);
 
 private:
 	UPROPERTY(VisibleAnywhere)
@@ -170,8 +158,7 @@ protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Component")
 	UAFAttributeComponent* AttributeComp; // 캐릭터 속성 관리 component
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Component")
-	UAFStatusEffectComponent* StatusEffectComp; //캐릭터 스킬 효과 관리 component
+	
 	
 	// 스프린트 입력 상태(누르고 있는지)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
@@ -203,7 +190,9 @@ protected:
 
 	void LockMovement();
 	void UnlockMovement();
-	
+
+
+
 	// 서버로 공격 요청을 보내는 함수 (클라이언트에서 호출)
 	UFUNCTION(Server, Reliable)
 	void ServerAttackRequest();
@@ -212,7 +201,8 @@ protected:
 	void MulticastPlayAttackMontage();
 
 	virtual void OnRep_PlayerState() override;
-	
+
+
 	// 콤보 서버 함수
 	UFUNCTION(Server, Reliable)
 	void Server_DoComboAttack();
@@ -223,13 +213,8 @@ protected:
 	UFUNCTION()
 	void HandleSkillHitCheck(float Radius, float Damage, float RotationOffset = 0.f);
 
-	// 아군인지 확인하는 함수
-	bool IsAlly(AActor* InTargetActor);
-	
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_PlayHitReact(EAFHitDir Dir);
-	EAFHitDir CalcHitDir(AActor* Attacker) const;
+	protected:
+		// 아군인지 확인하는 함수
+		bool IsAlly(AActor* InTargetActor);
 
-	// AFPlayerCharacter.h
-	
 };

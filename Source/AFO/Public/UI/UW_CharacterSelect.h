@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "Player/AFPlayerState.h"
 #include "UW_CharacterSelect.generated.h"
 
 class UButton;
@@ -14,11 +13,6 @@ class AFO_API UUW_CharacterSelect : public UUserWidget
 {
 	GENERATED_BODY()
 
-public:
-	FTimerHandle BindRetryHandle;
-	bool bBound = false;
-	void TryBindGameState();
-
 protected:
 	virtual void NativeConstruct() override;
 
@@ -29,7 +23,6 @@ protected:
 	UFUNCTION() void OnClickChar4();
 	UFUNCTION() void OnClickReady();
 	UFUNCTION() void RefreshUI();
-	UFUNCTION() void RefreshUI_FromDelegate(AAFPlayerState* ChangedPS);
 
 private:
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> BtnChar0;

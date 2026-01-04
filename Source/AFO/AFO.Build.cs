@@ -10,8 +10,8 @@ public class AFO : ModuleRules
 	
 		PublicDependencyModuleNames.AddRange(new string[] 
 		{ 
-			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" , "UMG", "Slate", "SlateCore", "Niagara"
-        });
+			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" , "UMG",
+		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 

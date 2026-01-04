@@ -12,8 +12,6 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnHealthManaChanged, float, Curr
 // 킬/데스 변경 델리게이트
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStatCountChanged, int32, NewValue, class AAFPlayerState*, ChangedPlayer);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTeamInfoChanged, AAFPlayerState*, ChangedPlayer);
-
 UCLASS()
 class AFO_API AAFPlayerState : public APlayerState
 {
@@ -23,12 +21,10 @@ public:
 	AAFPlayerState();
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual void CopyProperties(APlayerState* PlayerState) override;
-	virtual void OverrideWith(APlayerState* PlayerState) override;
 
-	UPROPERTY(BlueprintAssignable)
-	FOnTeamInfoChanged OnTeamInfoChanged;
-
+	//  ==============================
+	//  복제변수
+	// ==============================
 protected:
 	UPROPERTY(Replicated)
 	float MaxHealth;
@@ -48,25 +44,18 @@ protected:
 	UPROPERTY(ReplicatedUsing = OnRep_DeathCount)
 	int32 DeathCount;
 
-	UPROPERTY(ReplicatedUsing = OnRep_TeamInfo)
-	uint8 TeamID;
+	UPROPERTY(Replicated)
+	uint8 TeamID;  	// 팀 정보 ( 0: RED, 1: BLUE)
 
-	UPROPERTY(ReplicatedUsing = OnRep_TeamInfo)
-	uint8 TeamIndex;
-
-
-	UFUNCTION()
-	void OnRep_TeamInfo();
+	UPROPERTY(Replicated)
+	uint8 TeamIndex; 	// 팀 내 인덱스
 
 	UPROPERTY(ReplicatedUsing = OnRep_IsDead)
 	bool bIsDead = false;
 
-	UPROPERTY(ReplicatedUsing = OnRep_SelectedCharacter) 
-	uint8 SelectedCharacterId = 255;
-
-	UPROPERTY(ReplicatedUsing = OnRep_Ready)
-	bool bReady = false;
-
+//  ===============================
+//  OnRep 함수
+// ================================
 	UFUNCTION()
 	void OnRep_CurrentHealth();
 	UFUNCTION()
@@ -79,11 +68,6 @@ protected:
 	UFUNCTION()
 	void OnRep_IsDead();
 
-	UFUNCTION() 
-	void OnRep_SelectedCharacter();
-
-	UFUNCTION()
-	void OnRep_Ready();
 //  ===============================
 //  Public API (Getter / Setter)
 // ================================
@@ -108,10 +92,6 @@ public:
 
 	bool IsDead() const { return bIsDead; }
 
-	bool HasSelectedCharacter() const { return SelectedCharacterId != 255; }
-	uint8 GetSelectedCharacterId() const { return SelectedCharacterId; }
-	bool IsReady() const { return bReady; }
-
 	//Setter (서버전용)
 	void SetHealth(float NewHealth, float NewMaxHealth);
 	void SetMana(float NewMana, float NewMaxMana);
@@ -122,10 +102,6 @@ public:
 	void SetDead(bool bNewDead);
 	void ResetForRespawn();
 
-
-	void SetSelectedCharacter_Server(uint8 InId);
-	void SetReady_Server(bool bNewReady);
-	void ResetLobbySelection_Server();
 
 	// 추가 함수
 

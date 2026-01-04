@@ -20,9 +20,6 @@ public:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
 
-	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
-	virtual void HandleSeamlessTravelPlayer(AController*& C) override;
-
 	void ReportKill(AController* KillerController);
 	void EndRound();
 
@@ -78,9 +75,6 @@ public:
 	// 게임 시작을 알리는 함수
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Battle")
 	int32 StartDelayTime = 5;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Character")
-	TArray<TSubclassOf<APawn>> CharacterPawnClasses;
 
 	FTimerHandle TimerHandle_GameStart;
 };

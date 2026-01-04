@@ -73,7 +73,7 @@ void AAFTitlePlayerController::JoinServer(const FString& InIPAddress, const FStr
 	// 1. 로컬에서 방을 직접 팔 때 (Listen Server)
 	if (Trimmed.IsEmpty())
 	{
-		const FString MapURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOTeamSelect");
+		const FString MapURL = TEXT("/Game/01_ArenaFighter/01_Levels/AFOBattleZone");
 		const FString Options = FString::Printf(TEXT("listen?Name=%s"), *TrimmedName);
 
 		UGameplayStatics::OpenLevel(GetWorld(), FName(*MapURL), true, Options);

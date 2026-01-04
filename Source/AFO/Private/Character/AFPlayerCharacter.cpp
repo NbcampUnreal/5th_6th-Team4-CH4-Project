@@ -11,12 +11,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Engine/OverlapResult.h"
 #include "Animation/AnimInstance.h"
-#include "UI/AFHealthBarWidget.h"
-#include "Blueprint/UserWidget.h"
-#include <Components/WidgetComponent.h>
-
 #include "Components/AFStatusEffectComponent.h"
-#include "Gimmick/AFBuffItem.h"
 
 AAFPlayerCharacter::AAFPlayerCharacter()
 {
@@ -24,7 +19,7 @@ AAFPlayerCharacter::AAFPlayerCharacter()
 
 	AttributeComp = CreateDefaultSubobject<UAFAttributeComponent>(TEXT("AttributeComponent"));
 	StatusEffectComp = CreateDefaultSubobject<UAFStatusEffectComponent>(TEXT("StatusEffectComponent"));
-
+ 
 	NormalSpeed = 400.f;
 	SprintSpeedMultiplier = 1.5f;
 	SprintSpeed = NormalSpeed * SprintSpeedMultiplier;
@@ -131,29 +126,6 @@ void AAFPlayerCharacter::BeginPlay()
 	{
 		AnimInstance->OnMontageEnded.AddDynamic(this, &AAFPlayerCharacter::OnAttackMontageEnded);
 	}
-
-	if (GetNetMode() != NM_DedicatedServer)
-	{
-		// 1. 위젯 컴포넌트 찾기 (이름으로 찾거나 클래스로 찾기)
-		UWidgetComponent* HPBarComp = FindComponentByClass<UWidgetComponent>();
-		if (HPBarComp)
-		{
-			// 2. 생성된 위젯 인스턴스를 우리 C++ 클래스로 캐스팅
-			UAFHealthBarWidget* HPWidget = Cast<UAFHealthBarWidget>(HPBarComp->GetUserWidgetObject());
-			if (HPWidget)
-			{
-				// 3. ★ 여기서 깨워줘야 타이머가 돌기 시작합니다!
-				HPWidget->BindToCharacter(this);
-				UE_LOG(LogTemp, Warning, TEXT("[Character] Success: BindToCharacter called for %s"), *GetName());
-			}
-			else
-			{
-				// 캐스팅 실패 시 로그 (부모 클래스 설정 확인용)
-				UE_LOG(LogTemp, Error, TEXT("[Character] Failed to Cast Widget for %s! Check Parent Class."), *GetName());
-			}
-		}
-	}
-
 }
 
 void AAFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -385,13 +357,6 @@ void AAFPlayerCharacter::OnAttackMontageEnded(UAnimMontage* Montage, bool bInter
 	{
 		bIsAttacking = false;
 	}
-	if (Montage == HitReactMontage_Front.Get() ||
-		Montage == HitReactMontage_Back.Get() ||
-		Montage == HitReactMontage_Left.Get() ||
-		Montage == HitReactMontage_Right.Get())
-	{
-		bIsHit = false;
-	}
 }
 
 void AAFPlayerCharacter::HandleOnCheckHit()
@@ -577,6 +542,7 @@ void AAFPlayerCharacter::DealDamage()
 {
 	if (!HasAuthority()) return;
 
+	// 1. 공격위치
 	FVector Center = GetActorLocation() + (GetActorForwardVector() * 120.f) + FVector(0, 0, 90.f);
 	float Radius = 120.f;
 
@@ -585,10 +551,13 @@ void AAFPlayerCharacter::DealDamage()
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
+	// 공격 범위 표시 디버깅
+	// DrawDebugSphere(GetWorld(), Center, Radius, 16, FColor::Red, false, 1.0f);
+
 	bool bHit = GetWorld()->OverlapMultiByChannel(
 		OverlapResults, Center, FQuat::Identity, ECC_Pawn, Sphere, Params
 	);
-	
+
 	if (bHit)
 	{
 		for (const FOverlapResult& Result : OverlapResults)
@@ -603,12 +572,17 @@ void AAFPlayerCharacter::DealDamage()
 				if (Attr)
 				{
 					Attr->ApplyDamage(20.f, GetController());
+					UE_LOG(LogTemp, Error, TEXT("!!! [DAMAGE SUCCESS] Target: %s !!!"), *HitActor->GetName());
 				}
-				
-				if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
+				// 공격 적중 시 슬로우 적용(서버에서만)
+				UAFStatusEffectComponent* StatusComp = HitActor->FindComponentByClass<UAFStatusEffectComponent>();
+
+				if (StatusComp)
 				{
-					Victim->TriggerHitReact_FromAttacker(this);
+					// 슬로우 20%, 0.5초
+					StatusComp->ApplySlow(0.8f, 0.5f);
 				}
+
 			}
 		}
 	}
@@ -662,7 +636,7 @@ void AAFPlayerCharacter::LockMovement()
 	}
 
 	// 입력으로 인한 이동만 막기(몽타주 루트모션은 필요하면 유지 가능)
-	if (AController* C = GetController())
+	if (AController* C = GetController()) 
 	{
 		C->SetIgnoreMoveInput(true);
 	}
@@ -677,6 +651,29 @@ void AAFPlayerCharacter::UnlockMovement()
 		C->SetIgnoreMoveInput(false);
 	}
 }
+
+void AAFPlayerCharacter::OnDeath()
+{
+	if (!HasAuthority()) return;
+
+	// 이동, 입력 전부 차단
+	LockMovement();
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->DisableMovement();
+	}
+
+	// 사망 애니메이션 재생 (모든 클라 동기화)
+	if (DeathMontage)
+	{
+		PlayAnimMontage(DeathMontage);
+	}
+
+	LockMovement();
+}
+
 
 void AAFPlayerCharacter::OnRep_PlayerState()
 {
@@ -739,17 +736,7 @@ void AAFPlayerCharacter::HandleOnCheckInputAttack_FromNotify(UAnimInstance* Anim
 	}
 }
 
-void AAFPlayerCharacter::TriggerHitReact_FromAttacker(AActor* Attacker)
-{
-	if (!HasAuthority()) return;
-	if (bIsHit) return;
-
-	const EAFHitDir Dir = CalcHitDir(Attacker);
-
-	bIsHit = true;
-	Multicast_PlayHitReact(Dir);
-}
-
+// 스킬 노티파이에서 호출할 함수
 void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float RotationOffset)
 {
 	if (!HasAuthority()) return;
@@ -780,37 +767,26 @@ void AAFPlayerCharacter::HandleSkillHitCheck(float Radius, float Damage, float R
 		Sphere,
 		Params
 	);
-	
-	if (bHit) return;
+
+
+	if (bHit)
 	{
 		for (auto& Result : OverlapResults)
 		{
 			AActor* HitActor = Result.GetActor();
 			if (HitActor)
 			{
-				if (HitActor == this) continue;     // 자기 자신 제외
-				if (IsAlly(HitActor)) continue;     // 아군 제외
-				
 				UAFAttributeComponent* Attr = HitActor->FindComponentByClass<UAFAttributeComponent>();
 				if (Attr)
 				{
 					Attr->ApplyDamage(Damage, GetController());
 					UE_LOG(LogTemp, Warning, TEXT("Skill Hit! -> %s"), *HitActor->GetName());
 				}
-				
-				if (AAFPlayerCharacter* Victim = Cast<AAFPlayerCharacter>(HitActor))
-				{
-					Victim->TriggerHitReact_FromAttacker(this);
-				}
-				// 슬로우 적용 
-				if (UAFStatusEffectComponent* StatusComp = HitActor->FindComponentByClass<UAFStatusEffectComponent>())
-				{
-					StatusComp->ApplySlow(0.2f, 0.5f);
-				}
 			}
 		}
 	}
 }
+
 
 bool AAFPlayerCharacter::IsAlly(AActor* InTargetActor)
 {
@@ -829,56 +805,4 @@ bool AAFPlayerCharacter::IsAlly(AActor* InTargetActor)
 
 	return false;
 }
-
-void AAFPlayerCharacter::Multicast_PlayHitReact_Implementation(EAFHitDir Dir)
-{
-	TObjectPtr<UAnimMontage> Montage = nullptr;
-
-	switch (Dir)
-	{
-	case EAFHitDir::Front: Montage = HitReactMontage_Front; break;
-	case EAFHitDir::Back:  Montage = HitReactMontage_Back;  break;
-	case EAFHitDir::Left:  Montage = HitReactMontage_Left;  break;
-	case EAFHitDir::Right: Montage = HitReactMontage_Right; break;
-	}
-
-	if (!Montage) return;
-
-	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
-	{
-		Anim->StopAllMontages(0.05f); // 맞으면 스킬/공격 끊기
-	}
-
-	bIsUsingSkill = false;
-	bIsAttacking = false;
-	bIsHeavyAttacking = false;
-
-	UnlockMovement();
-
-	PlayAnimMontage(Montage.Get(), 1.f);
-}
-
-EAFHitDir AAFPlayerCharacter::CalcHitDir(AActor* Attacker) const
-{
-	if (!Attacker) return EAFHitDir::Front;
-
-	FVector Dir = Attacker->GetActorLocation() - GetActorLocation(); // 공격자 - 피해자
-	Dir.Z = 0.f;
-
-	if (Dir.IsNearlyZero()) return EAFHitDir::Front;
-	Dir.Normalize();
-
-	const float F = FVector::DotProduct(GetActorForwardVector(), Dir);
-	const float R = FVector::DotProduct(GetActorRightVector(), Dir);
-
-	if (FMath::Abs(F) >= FMath::Abs(R))
-	{
-		return (F >= 0.f) ? EAFHitDir::Front : EAFHitDir::Back;
-	}
-	return (R >= 0.f) ? EAFHitDir::Right : EAFHitDir::Left;
-}
-
-
-
-
 

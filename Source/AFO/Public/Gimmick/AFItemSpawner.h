@@ -20,29 +20,27 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Spawn Settings")
     TArray<TSubclassOf<class AAFBuffItem>> ItemClasses;
 
+    // 스폰 포인트 액터
     UPROPERTY(EditAnywhere, Category = "Spawn Settings")
-    float InnerRadius = 500.0f; // 경기장 중심부 (뚫린 공간)
+    TArray<TObjectPtr<AActor>> SpawnPoints;
 
+    // 스폰 주기 (30초)
     UPROPERTY(EditAnywhere, Category = "Spawn Settings")
-    float OuterRadius = 1500.0f; // 나무 데크 외곽 끝부분
+    float SpawnInterval = 30.0f;
 
+    // 한 번에 스폰할 아이템 개수 (2개)
     UPROPERTY(EditAnywhere, Category = "Spawn Settings")
-    float SpawnInterval = 10.0f;
-
-    void SpawnRandomItem();
-
-    // 원형 영역 내 랜덤 위치 계산 함수
-    FVector GetRandomPointInAnnulus();
-
-
-    // 에디터에서 영역을 그릴지 여부
-    UPROPERTY(EditAnywhere, Category = "Spawn Settings")
-    bool bShowDebugVisuals = true;
-
-    // 에디터 상에서 실시간으로 영역을 그리기 위한 함수
-    virtual bool ShouldTickIfViewportsOnly() const override { return true; }
-    virtual void Tick(float DeltaTime) override;
+    int32 SpawnCount = 2;
 
 private:
+    // 현재 월드에 생성된 아이템들을 관리 (다음 주기 때 제거용)
+    UPROPERTY()
+    TArray<TObjectPtr<class AAFBuffItem>> CurrentSpawnedItems;
+
     FTimerHandle SpawnTimerHandle;
+
+    void RefreshItems(); // 기존 아이템 삭제 및 새 아이템 생성 메인 로직
+    void ClearExistingItems();
+    void SpawnRandomItems();
+
 };

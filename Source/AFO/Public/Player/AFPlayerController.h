@@ -104,18 +104,4 @@ public:
 	// 위젯 제거 함수 추가
 	UFUNCTION(Client, Reliable)
 	void Client_ClearRespawnWidget();
-
-
-
-public:
-	// 서버가 호출할 킬 로그 표시 RPC
-	UFUNCTION(Client, Reliable)
-	void Client_ShowKillLog(const FString& KillerName, FLinearColor KillerColor, const FString& VictimName, FLinearColor VictimColor);
-
-protected:
-	UPROPERTY(EditAnywhere, Category = "AFO|UI")
-	TSubclassOf<class UAFKillLogContainer> KillLogContainerClass;
-
-	UPROPERTY()
-	class UAFKillLogContainer* KillLogContainer;
 };
